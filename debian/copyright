@@ -1,0 +1,11 @@
+The upstream authors are:
+	Richard Jones (rich@annexia.org),
+	Rob Brown (rbrown at about-inc.com),
+	Keith Turner (keitht at silvaco.com),
+	Azazel (azazel at azazel.net),
+and many others.
+
+libnet-ftpserver-perl is released under the GNU General Public
+License.  On a Debian GNU/Linux systems, the complete text of the GNU
+General Public License can be found in the file
+/usr/share/common-licenses/GPL.

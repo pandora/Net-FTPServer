@@ -16,6 +16,11 @@ bin/dbeg1-ftpd.pl
 bin/ftpd.pl
 bin/inmem-ftpd.pl
 bin/ro-ftpd.pl
+debian/README.Debian
+debian/changelog
+debian/control
+debian/copyright
+debian/rules
 doc/.cvsignore
 doc/archives.txt
 doc/eg1-psql63.sql
