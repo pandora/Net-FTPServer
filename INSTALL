@@ -1,0 +1,37 @@
+$Id: INSTALL,v 1.2 2000/08/17 16:42:26 rich Exp $
+
+Installing Net::FTPServer
+-------------------------
+
+Prerequisites:
+
+  Authen::PAM      optional       If you want to do PAM authentication (eg.
+                                  you have Red Hat Linux or Solaris).
+  BSD::Resource    required
+  Digest::MD5      optional       If you want the SITE CHECKSUM command
+                                  to work correctly.
+  Getopt::Long     required       This is usually supplied as part of the
+                                  basic Perl package.
+
+I have tested this on perl 5.00503 & Red Hat Linux 6.0 only.
+
+To compile:
+
+  perl Makefile.PL
+  make
+  make test
+
+To install (usually as root):
+
+  make install
+
+The documentation should be automatically installed. Do:
+
+  man Net::FTPServer
+
+or if you don't have a working man pages system, do:
+
+  pod2man lib/Net/FTPServer.pm | nroff -man | more
+
+Information on how to start and stop the FTP server is
+contained in the manual page.

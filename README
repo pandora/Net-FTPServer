@@ -1,0 +1,21 @@
+$Id: README,v 1.2 2000/08/17 16:42:26 rich Exp $
+
+Net::FTPServer - A secure, extensible and configurable Perl FTP server.
+
+Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
+London, SW6 3EG, UK.
+
+Net::FTPServer is a full featured, secure, extensible and
+configurable FTP server written in Perl.
+
+There is a permanent website for Net::FTPServer here:
+
+	http://ftpserver.annexia.org/
+
+Installation documentation is in the file ``INSTALL''.
+
+All other documentation is in the manual page. After installation, type:
+
+  man Net::FTPServer
+
+To contact the author, please email: Richard Jones <rich@annexia.org>
