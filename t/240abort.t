@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 240abort.t,v 1.1 2001/02/22 15:46:16 rich Exp $
+# $Id: 240abort.t,v 1.2 2001/08/23 11:24:22 rich Exp $
 
 # NOTE: This test has been disabled. It can't work yet because you
 # can't send OOB data over a normal pipe.
@@ -9,6 +9,7 @@ use strict;
 use Test;
 use POSIX qw(dup2);
 use IO::Handle;
+use FileHandle;
 
 BEGIN {
   plan tests => 16;

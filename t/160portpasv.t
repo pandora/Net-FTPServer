@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 160portpasv.t,v 1.1 2001/02/18 23:19:58 rich Exp $
+# $Id: 160portpasv.t,v 1.2 2001/08/23 11:24:21 rich Exp $
 
 use strict;
 use Test;
@@ -8,6 +8,7 @@ use POSIX qw(dup2);
 use IO::Handle;
 use IO::Socket;
 use IO::Socket::INET;
+use FileHandle;
 
 BEGIN {
   plan tests => 41;

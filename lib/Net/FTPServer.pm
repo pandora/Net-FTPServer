@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.137 2001/08/08 13:03:17 rich Exp $
+# $Id: FTPServer.pm,v 1.141 2001/08/23 11:24:16 rich Exp $
 
 =pod
 
@@ -1447,7 +1447,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.137 2001/08/08 13:03:17 rich Exp $
+  200-$Id: FTPServer.pm,v 1.141 2001/08/23 11:24:16 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1737,7 +1737,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.027';
+$VERSION = '1.028';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -2318,6 +2318,7 @@ sub run
 	    local $SIG{__DIE__}  = 'DEFAULT';
 	    local $SIG{ALRM} = sub { $got_bored = 1; die "timed out"; };
 	    alarm $ident_timeout;
+	    "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 	    $ident = new IO::Socket::INET
 	      (PeerAddr  => $self->{peeraddrstring},
 	       PeerPort  => "auth");
@@ -2766,12 +2767,16 @@ sub _be_daemon
     $self->log ("info", "operating in daemon mode");
     $self->_log_line ("[DAEMON Started]");
 
+    # Jump to a safe place because this is a deamon
+    chdir "/";
+
     # If the process receives SIGHUP, then it passes in the socket
     # fd here through the BIND environment variable. Check for this,
     # because if so we don't need to open a new listening socket.
     if (exists $ENV{BIND} && $ENV{BIND} =~ /^(\d+)$/)
       {
 	my $bind_fd = $1;
+	"0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 	$self->{_ctrl_sock} = new IO::Socket::INET;
 	$self->{_ctrl_sock}->fdopen ($bind_fd, "w")
 	  or die "socket: $!";
@@ -2806,6 +2811,7 @@ sub _be_daemon
 	}
 
 	# Open a socket on the control port.
+	"0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 	$self->{_ctrl_sock} =
 	  new IO::Socket::INET (@args)
 	    or die "socket: $!";
@@ -3574,7 +3580,7 @@ sub _PASS_command
 	  }
 	else
 	  {
-	    $self->{home_directory} = (getpwnam $self->{user})[7];
+	    $self->{home_directory} = (getpwnam $self->{user})[7] || "/";
 	  }
       }
     else
@@ -4028,6 +4034,7 @@ sub _PASV_command
       {
 	# Use the standard kernel determined ephemeral port
 	# by leaving off LocalPort parameter.
+	"0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 	$sock = IO::Socket::INET->new
 	  (Listen => 1,
 	   LocalAddr => $self->{sockaddrstring},
@@ -4066,6 +4073,7 @@ sub _PASV_command
 		$n -= $_->[2];
 	      }
 
+	    "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 	    $sock = IO::Socket::INET->new
 	      (Listen => 1,
 	       LocalAddr => $self->{sockaddrstring},
@@ -6129,6 +6137,7 @@ sub open_data_connection
     if (! $self->{_passive})
       {
 	# Active mode - connect back to the client.
+	"0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 	$sock
 	  = new IO::Socket::INET->new (PeerAddr => $self->{_hostaddrstring},
 				       PeerPort => $self->{_hostport},

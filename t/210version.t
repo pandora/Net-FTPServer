@@ -1,11 +1,12 @@
 #!/usr/bin/perl -w
 
-# $Id: 210version.t,v 1.1 2001/02/20 16:22:24 rich Exp $
+# $Id: 210version.t,v 1.2 2001/08/23 11:24:22 rich Exp $
 
 use strict;
 use Test;
 use POSIX qw(dup2);
 use IO::Handle;
+use FileHandle;
 
 BEGIN {
   plan tests => 3;

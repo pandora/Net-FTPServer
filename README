@@ -1,4 +1,4 @@
-$Id: README,v 1.28 2001/08/08 13:03:17 rich Exp $
+$Id: README,v 1.33 2001/08/23 11:35:28 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -71,6 +71,14 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.028: Change directory to root ("/") when in daemon mode
+[Rob]. Various fixes and workarounds for Perl 5.7 [Rich]. Various
+changes to RPM spec file so that it works cleanly under all versions
+of Perl [dan at berrange dot com]. It has been reported to me that
+this version does not work on Solaris because of a seemingly minor bug
+(RLMIT_NPROC is missing).  Unfortunately I don't have a suitable box
+to reproduce this on. Can anyone help with a patch please?
 
 Version 1.027: VFS only required to support relative forward seeks to
 simplify certain backends (thanks to Keith Turner for this patch).
