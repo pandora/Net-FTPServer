@@ -1,4 +1,4 @@
-$Id: README,v 1.35 2001/08/23 16:11:49 rich Exp $
+$Id: README,v 1.39 2001/08/26 22:03:29 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -71,6 +71,15 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.030: Cleaned up server start of day messages. Fixed a nasty
+bug which prevented command line options from working some of the time
+(the bug was introduced in the last release). Workaround to keep
+/etc/protocols open across chroot (thanks to Abraham Ingersoll
+<abe@dajoba.com>). Handle QUIT and client termination the same way so
+there is a simpler exit path from a child process. Added more tests.
+Fixed handling of multiple line configuration file keys. Added
+<IncludeWildcard> directive for configuration files.
 
 Version 1.029: Solaris missing RLIMIT_NPROC fixed (?).  Further fixes
 for Perl 5.7.2: no longer opens /dev/null twice by accident. Cleaned

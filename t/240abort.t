@@ -1,9 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 240abort.t,v 1.2 2001/08/23 11:24:22 rich Exp $
-
-# NOTE: This test has been disabled. It can't work yet because you
-# can't send OOB data over a normal pipe.
+# $Id: 240abort.t,v 1.3 2001/08/26 22:03:32 rich Exp $
 
 use strict;
 use Test;

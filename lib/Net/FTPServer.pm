@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.143 2001/08/23 16:11:50 rich Exp $
+# $Id: FTPServer.pm,v 1.148 2001/08/26 22:03:29 rich Exp $
 
 =pod
 
@@ -159,6 +159,15 @@ the contents of C<filename> directly at the current point
 within the configuration file.
 
 You cannot use E<lt>IncludeE<gt> within a E<lt>HostE<gt>
+section, or at least you I<can> but it wonE<39>t work the
+way you expect.
+
+=item E<lt>IncludeWildcard wildcardE<gt>
+
+Include all files matching C<wildcard> at this point in
+the file. The files are included in alphabetical order.
+
+You cannot use E<lt>IncludeWildcardE<gt> within a E<lt>HostE<gt>
 section, or at least you I<can> but it wonE<39>t work the
 way you expect.
 
@@ -1213,19 +1222,6 @@ Here is a good idea that Rob Brown had:
 Notice how this allows you to crunch a possibly very large
 configuration file into a hash, for very rapid loading at run time.
 
-Another useful example. Directory C</etc/ftpd/> contains a
-series of FTP server configuration files. Place the following
-code in C</etc/ftpd.conf> to load all of these files at run
-time. This uses some hairy FTP server internals.
-
- <Perl>
- map { $self->_open_config_file ($_) } sort glob "/etc/ftpd/*.conf";
- </Perl>
-
-(A future version of Net::FTPServer will probably have an
-E<lt>IncludeWildcardE<gt> directive to allow this to be
-done more easily).
-
 HereE<39>s yet another wonderful way to use E<lt>PerlE<gt>.
 Look in C</usr/local/lib/ftp/> for a list of site commands
 and load each one:
@@ -1436,7 +1432,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.143 2001/08/23 16:11:50 rich Exp $
+  200-$Id: FTPServer.pm,v 1.148 2001/08/26 22:03:29 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1726,7 +1722,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.029';
+$VERSION = '1.030';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -1920,8 +1916,6 @@ sub run
 	}
 
 	Sys::Syslog::openlog "ftpd", "pid", "daemon";
-	$self->log ("info", $self->{version_string} . " running");
-
       }
 
     # Handle error and warning messages. If error log is set (which
@@ -2042,14 +2036,22 @@ sub run
 	  }
       }
 
+    my $daemon_mode = $self->config ("daemon mode");
+    my $run_in_background = $self->config ("run in background");
+
+    # Display start-up string in syslog.
+    $self->log ("info",
+		$self->{version_string} . " running" .
+		($daemon_mode ? " daemon" : "") .
+		($run_in_background ? " background" : "") .
+		($self->config ("port") ? " on port " . $self->config ("port")
+		                        : ""));
+
     # Daemon mode?
-    if ($self->config ("daemon mode"))
+    if ($daemon_mode)
       {
 	# Fork into the background?
-	if ($self->config ("run in background"))
-	  {
-	    $self->_fork_into_background;
-	  }
+	$self->_fork_into_background if $run_in_background;
 
 	$self->_save_pid;
 
@@ -2469,6 +2471,13 @@ sub run
 	    next;
 	  }
 
+	# Handle the QUIT command specially.
+	if ($cmd eq "QUIT")
+	  {
+	    $self->reply (221, "Goodbye. Service closing connection.");
+	    last;
+	  }
+
 	# Got a command which matches in the table?
 	unless (exists $self->{command_table}{$cmd})
 	  {
@@ -2488,8 +2497,14 @@ sub run
 	$self->xfer_flush if $self->{_xferlog};
       }
 
-    $self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
-    $self->log ("info", "connection terminated normally");
+    unless ($self->{_test_mode})
+      {
+	$self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
+	$self->log ("info", "connection terminated normally");
+      }
+
+    # The return value is used by the test scripts.
+    $self;
   }
 
 # Signals are handled synchronously to get around the problem
@@ -2722,7 +2737,7 @@ Normal standalone usage:
 
 Normal usage from inetd:
 
-  ftp stream tcp nowait root /usr/sbin/tcpd in.ftpd
+  ftp stream tcp nowait root /usr/sbin/tcpd $name
 
 For further information, please read the full documentation in the
 Net::FTPServer(3) manual page.
@@ -2740,20 +2755,20 @@ EOT
     # line will override those present in the configuration file.
     if ($port)
       {
-	$self->_set_config ("port", $port);
+	$self->_set_config ("port", $port, splat => 1);
       }
     if ($s_option)
       {
-	$self->_set_config ("daemon mode", 1);
+	$self->_set_config ("daemon mode", 1, splat => 1);
       }
     if ($S_option)
       {
-	$self->_set_config ("daemon mode", 1);
-	$self->_set_config ("run in background", 1);
+	$self->_set_config ("daemon mode", 1, splat => 1);
+	$self->_set_config ("run in background", 1, splat => 1);
       }
     if ($pidfile)
       {
-	$self->_set_config ("pidfile", $pidfile);
+	$self->_set_config ("pidfile", $pidfile, splat => 1);
       }
 
     # Override other configuration file options.
@@ -2791,7 +2806,7 @@ sub _fork_into_background
     open STDIN, "</dev/null";
     open STDOUT, ">>/dev/null";
 
-    $self->log ("info", "forked into background");
+#   $self->log ("info", "forked into background");
   }
 
 # Be a daemon (command line -s option).
@@ -2800,7 +2815,7 @@ sub _be_daemon
   {
     my $self = shift;
 
-    $self->log ("info", "operating in daemon mode");
+#   $self->log ("info", "operating in daemon mode");
     $self->_log_line ("[DAEMON Started]");
 
     # Jump to a safe place because this is a deamon
@@ -3024,7 +3039,11 @@ sub _open_config_file
 	# More lines?
 	while (/\\$/)
 	  {
-	    $_ .= $config->getline;
+	    $_ =~ s/\\$//;
+	    my $nextline = $config->getline;
+	    $nextline =~ s/^\s+//;
+	    $nextline =~ s/[\n\r]+$//;
+	    $_ .= $nextline;
 	    $lineno++;
 	  }
 
@@ -3037,6 +3056,22 @@ sub _open_config_file
 	      }
 
 	    $self->_open_config_file ($1);
+	    next;
+	  }
+
+	# Special treatment: <IncludeWildcard> files.
+	if (/^\s*<IncludeWildcard\s+(.*)>\s*$/i)
+	  {
+	    if ($sitename)
+	      {
+		die "$config_file:$lineno: cannot use <IncludeWildcard> inside a <Host> section. It will not do what you expect. See the Net::FTPServer(3) manual page for information.";
+	      }
+
+	    my @files = sort glob $1;
+	    foreach (@files)
+	      {
+		$self->_open_config_file ($_);
+	      }
 	    next;
 	  }
 
@@ -3699,7 +3734,10 @@ sub _PASS_command
       ? $self->config ("time zone")
       : "GMT";
 
-    # Open /etc/protocols etc., in case we chroot.
+    # Open /etc/protocols etc., in case we chroot. And yes, doing the
+    # setprotoent _twice_ is necessary to work around a bug in Perl or
+    # glibc (thanks Abraham Ingersoll <abe@dajoba.com>).
+    setprotoent 1;
     setprotoent 1;
     sethostent 1;
     setnetent 1;
@@ -3967,20 +4005,9 @@ sub _REIN_command
 
 sub _QUIT_command
   {
-    my $self = shift;
-    my $cmd = shift;
-    my $rest = shift;
-
-    $self->reply (221, "Goodbye. Service closing connection.");
-    $self->log ("info", "connection terminated normally");
-
-    my $host =
-      ! $self->{_test_mode}
-      ? "$self->{peeraddrstring}:$self->{peerport}"
-      : "";
-
-    $self->_log_line ("[ENDED BY SERVER $host]");
-    exit;
+    # This function should never be called. The server main command loop
+    # now deals with the "QUIT" command as a special case.
+    die;
   }
 
 sub _PORT_command
