@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.130 2001/08/02 22:53:03 rbrown Exp $
+# $Id: FTPServer.pm,v 1.137 2001/08/08 13:03:17 rich Exp $
 
 =pod
 
@@ -64,9 +64,7 @@ the section CONFIGURATION below.
 You should edit the standard file and then copy it
 to C</etc/ftpd.conf>:
 
-  cp ftpd.conf /etc/
-  chown root.root /etc/ftpd.conf
-  chmod 0644 /etc/ftpd.conf
+  install -c -o root -g root -m 0644 ftpd.conf /etc/
 
 Two start-up scripts are supplied with the ftp server,
 to run it in two common configurations: either as a full
@@ -78,9 +76,7 @@ place on your system (the default path is C</usr/bin/perl>).
 You should copy the appropriate script, either C<ftpd> or
 C<ro-ftpd> to a suitable place (for example: C</usr/sbin/in.ftpd>).
 
-  cp ftpd /usr/sbin/in.ftpd
-  chown root.root /usr/sbin/in.ftpd
-  chmod 0755 /usr/sbin/in.ftpd
+  install -c -o root -g root -m 0755 ftpd /usr/sbin/in.ftpd
 
 =head2 STANDALONE SERVER
 
@@ -103,11 +99,10 @@ Add the following line to C</etc/inetd.conf>:
 
   ftp stream tcp nowait root /usr/sbin/tcpd in.ftpd
 
-(This assumes that you have the C<tcpd> package installed
-to provide basic access control through C</etc/hosts.allow>
-and C</etc/hosts.deny>. This access control is in addition
-to any access control which you may configure through
-C</etc/ftpd.conf>.)
+(This assumes that you have the C<tcp-wrappers> package installed to
+provide basic access control through C</etc/hosts.allow> and
+C</etc/hosts.deny>. This access control is in addition to any access
+control which you may configure through C</etc/ftpd.conf>.)
 
 After editing this file you will need to inform C<inetd>:
 
@@ -482,6 +477,8 @@ Default: none
 
 Example: C<local address: 127.0.0.1>
 
+=item allow anonymous
+
 Allow anonymous access. If set, then allow anonymous access through
 the C<ftp> and C<anonymous> accounts.
 
@@ -553,8 +550,8 @@ Example: C<max login attempts: 5>
 
 Use PAM for authentication. Required on systems such as Red Hat Linux
 and Solaris which use PAM for authentication rather than the normal
-C</etc/passwd> mechanisms. You will need to have the Authen-PAM Perl
-module installed for this to work.
+C</etc/passwd> mechanisms. You will need to have the C<Authen::PAM>
+Perl module installed for this to work.
 
 Default: 0
 
@@ -1450,7 +1447,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.130 2001/08/02 22:53:03 rbrown Exp $
+  200-$Id: FTPServer.pm,v 1.137 2001/08/08 13:03:17 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1740,7 +1737,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.026';
+$VERSION = '1.027';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -4251,7 +4248,8 @@ sub _RETR_command
 	# Restart the connection from previous point?
 	if ($self->{_restart})
 	  {
-	    $file->sysseek ($self->{_restart}, SEEK_SET);
+	    # VFS seek method only required to support relative forward seeks
+	    $file->sysseek ($self->{_restart}, SEEK_CUR);
 	    $self->{_restart} = 0;
 	  }
 
@@ -6448,7 +6446,7 @@ are read.
 
 Status: optional.
 
-Notes: You may append your own information to C<$self->{version_string}>
+Notes: You may append your own information to C<$self-E<gt>{version_string}>
 from this hook.
 
 =cut
@@ -6751,13 +6749,9 @@ in ASCII mode.
 
 REST does not work before STOR/STOU/APPE (is it supposed to?)
 
-You cannot abort a transfer in progress yet. Nor can you check
-the status of a transfer in progress. Using the telnet interrupt
-commands can cause the FTP server to fail.
-
 User upload/download limits.
 
-Limit number of clients. Limit number of clients by host or IP address.
+Limit number of clients by host or IP address.
 
 The following commands are recognized by C<wu-ftpd>, but are not yet
 implemented by C<Net::FTPServer>:
@@ -6772,9 +6766,6 @@ implemented by C<Net::FTPServer>:
   SITE UMASK   This command is difficult to support with VFS.
 
 Symbolic links are not handled elegantly (or indeed at all) yet.
-
-The program needs to log a lot more general transfer and
-access information to syslog.
 
 Equivalent of ProFTPDE<39>s ``DisplayReadme'' function.
 
@@ -6810,14 +6801,17 @@ and bugs.
 
 Richard Jones (rich@annexia.org),
 Rob Brown (rbrown at about-inc.com),
-Azazel (azazel at azazel.net).
+Keith Turner (keitht at silvaco.com),
+Azazel (azazel at azazel.net),
+and many others.
 
 =head1 COPYRIGHT
 
 Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
-London, SW6 3EG, UK
+London, SW6 3EG, UK.
 
-Copyright (C) 2000-2001 Richard Jones (rich@annexia.org).
+Copyright (C) 2000-2001 Richard Jones (rich@annexia.org) and
+other contributors.
 
 =head1 SEE ALSO
 

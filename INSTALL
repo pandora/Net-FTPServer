@@ -1,9 +1,11 @@
-$Id: INSTALL,v 1.5 2001/07/31 12:51:57 rich Exp $
+$Id: INSTALL,v 1.6 2001/08/07 10:15:23 rich Exp $
 
 Installing Net::FTPServer
 -------------------------
 
 Prerequisites:
+
+  perl >= 5.00503
 
   Authen::PAM      optional       If you want to do PAM authentication (eg.
                                   you have Red Hat Linux or Solaris).
@@ -25,7 +27,8 @@ Prerequisites:
 
   IO-stringy       required       You will need this in order to run the
                                   test suite. Make sure you have at least
-				  version 1.220 from CPAN.
+				  version 1.220 from CPAN which includes
+				  some important bug fixes.
 
 To compile:
 
@@ -45,5 +48,6 @@ or if you don't have a working man pages system, do:
 
   pod2man lib/Net/FTPServer.pm | nroff -man | more
 
-Information on how to start and stop the FTP server is
-contained in the manual page.
+Read the section "INSTALLING AND RUNNING THE SERVER" to find out how
+to install the configuration file and scripts and to start and stop
+the server.
