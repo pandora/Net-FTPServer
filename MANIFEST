@@ -4,7 +4,6 @@ Build
 Build.local
 COPYING
 FAQ
-FTPServer.xs
 INSTALL
 MANIFEST
 Makefile.PL

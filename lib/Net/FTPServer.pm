@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.194 2002/11/21 05:28:53 rbrown Exp $
+# $Id: FTPServer.pm,v 1.197 2003/01/06 07:11:53 rbrown Exp $
 
 =pod
 
@@ -1713,7 +1713,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.194 2002/11/21 05:28:53 rbrown Exp $
+  200-$Id: FTPServer.pm,v 1.197 2003/01/06 07:11:53 rbrown Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2080,14 +2080,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.112';
+$VERSION = '1.113';
 $RELEASE = 1;
-
-# Implement dynamic loading of XSUB code.
-require DynaLoader;
-
-use vars qw(@ISA);
-@ISA = qw(DynaLoader);
 
 # Non-optional modules.
 use Config;
@@ -2125,12 +2119,6 @@ eval "use Archive::Zip;";
 eval "use BSD::Resource;";
 eval "use Digest::MD5;";
 eval "use File::Sync;";
-
-unless ($ENV{NO_BOOTSTRAP})
-  {
-    # Load the signal handling code.
-    bootstrap Net::FTPServer $VERSION;
-  }
 
 # Global variables and constants.
 use vars qw(@_default_commands
@@ -2181,6 +2169,13 @@ use vars qw(@_default_commands
     );
 
 $_default_timeout = 900;
+
+# Allocate and initialize signal flags
+use vars qw($GOT_SIGURG $GOT_SIGCHLD $GOT_SIGHUP $GOT_SIGTERM);
+$GOT_SIGURG  = 0;
+$GOT_SIGCHLD = 0;
+$GOT_SIGHUP  = 0;
+$GOT_SIGTERM = 0;
 
 =pod
 
@@ -2313,20 +2308,11 @@ sub run
 	};
       }
 
-    if ($] < 5.00702)
-      {
-	# Install safe signal handlers.
-	_install_signals ();
-      }
-    else
-      {
-	# Perl >= 5.7.2 has safe signals. Just use ordinary handlers.
-	# Except for SIGHUP which needs to be called synchronously.
-	$SIG{URG} = sub { $self->_handle_sigurg };
-	$SIG{CHLD} = sub { $self->_handle_sigchld };
-	$SIG{HUP} = sub { $self->{_hup} = 1 };
-	$SIG{TERM} = sub { $self->_handle_sigterm };
-      }
+    # Just set a flag in order to be "signal safe"
+    $SIG{URG}  = sub { $GOT_SIGURG  = 1; };
+    $SIG{CHLD} = sub { $GOT_SIGCHLD = 1; };
+    $SIG{HUP}  = sub { $GOT_SIGHUP  = 1; };
+    $SIG{TERM} = sub { $GOT_SIGTERM = 1; };
 
     # The following signal handlers can be handled by Perl, since
     # all they are going to do is exit anyway.
@@ -3006,47 +2992,30 @@ sub _check_signals
   {
     my $self = shift;
 
-    if ($] < 5.00702)
+    if ($GOT_SIGURG)
       {
-	my $sig = _test_and_clear_signals ();
-	return unless $sig;
-
-	if ($sig & (1 << &SIGURG))
-	  {
-	    $self->_handle_sigurg;
-	    $sig &= ~(1 << &SIGURG);
-	  }
-
-	if ($sig & (1 << &SIGCHLD))
-	  {
-	    $self->_handle_sigchld;
-	    $sig &= ~(1 << &SIGCHLD);
-	  }
-
-	if ($sig & (1 << &SIGHUP))
-	  {
-	    $self->_handle_sighup;
-	    $sig &= ~(1 << &SIGHUP);
-	  }
-
-	if ($sig & (1 << &SIGTERM))
-	  {
-	    $self->_handle_sigterm;
-	    $sig &= ~(1 << &SIGTERM);
-	  }
-
-	if ($sig)
-	  {
-	    warn sprintf ("unprocessed signals: %032b", $sig);
-	  }
+        $GOT_SIGURG  = 0;
+        $self->_handle_sigurg;
       }
-    else
+
+    if ($GOT_SIGCHLD)
       {
-	# Perl >= 5.7.2 has safe signals, but we still need to
-	# handle SIGHUP synchronously. The signal handler set
-	# $self->{_hup} for us.
-	$self->_handle_sighup if $self->{_hup};
+        $GOT_SIGCHLD = 0;
+        $self->_handle_sigchld;
       }
+
+    if ($GOT_SIGHUP)
+      {
+        $GOT_SIGHUP  = 0;
+        $self->_handle_sighup;
+      }
+
+    if ($GOT_SIGTERM)
+      {
+        $GOT_SIGTERM = 0;
+        $self->_handle_sigterm;
+      }
+
   }
 
 # Handle SIGURG signal in the parent process.
@@ -3425,32 +3394,21 @@ sub _be_daemon
 
 	my $sock;
 
-	if ($] < 5.00702)
-	  {
-	    my $selector = new IO::Select;
-	    $selector->add ($self->{_ctrl_sock});
+        my $selector = new IO::Select;
+        $selector->add ($self->{_ctrl_sock});
 
-	    until (defined $sock)
-	      {
-		my @ready = $selector->can_read (3);
+        until (defined $sock)
+          {
+            my @ready = $selector->can_read (3);
 
-		$self->_check_signals;
+            $self->_check_signals;
 
-		if (@ready > 0)
-		  {
-		    $sock = $self->{_ctrl_sock}->accept;
-		    warn "accept: $!" unless defined $sock;
-		  }
-	      }
-	  }
-	else
-	  {
-	    # With Perl >= 5.7.2 we have safe signals anyway and
-	    # so we can just call accept.
-
-	    $sock = $self->{_ctrl_sock}->accept;
-	    warn "accept: $!" unless defined $sock;
-	  }
+            if (@ready > 0)
+            {
+              $sock = $self->{_ctrl_sock}->accept;
+              warn "accept: $!" unless defined $sock;
+            }
+          }
 
 	if ($self->concurrent_connections >= $self->{_max_clients})
 	  {

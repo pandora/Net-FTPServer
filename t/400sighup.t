@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 400sighup.t,v 1.5 2002/11/21 05:29:53 rbrown Exp $
+# $Id: 400sighup.t,v 1.6 2002/12/31 03:30:18 rbrown Exp $
 
 use strict;
 use Test;
@@ -30,13 +30,24 @@ chomp $here;
 my $config  = ".400sighup.t.$$.conf";
 my $invoker = ".400sighup.t.$$.pl";
 
+# Where is this perl?
+my $perl = $^X;
+if ($perl !~ m%^/%) {
+  foreach my $path (split /:/, ($ENV{PATH} || "/usr/local/bin:/usr/bin:/bin")) {
+    if (-x "$path/$^X") {
+      $perl = "$path/$^X";
+      last;
+    }
+  }
+}
+
 # Need to preserve @INC for invoker script
 my $lib_pass = join(" ",@INC);
 
 # Write $invoker script which loads $config
 open CF, ">$invoker" or die "$invoker: $!";
 print CF <<EOT;
-#!$^X
+#!$perl
 use lib qw($lib_pass);
 use Net::FTPServer::InMem::Server;
 alarm(60); # Runaway servers are bad

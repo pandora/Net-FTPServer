@@ -1,4 +1,4 @@
-$Id: README,v 1.74 2002/12/28 14:07:50 rich Exp $
+$Id: README,v 1.77 2003/01/06 08:50:56 rbrown Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,11 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.113: EXPERIMENTAL RELEASE. Removed all XS code. Signal
+handlers are pure perl now even for older versions of perl < 5.7.
+Concept taken from Net::Server::SIG in order to avoid dangerous
+pitfalls of unsafe signal handling in older versions of perl.
 
 Version 1.112: EXPERIMENTAL RELEASE. Avoids sleeping in Makefile.PL if
 you set NET_FTPSERVER_NO_SLEEP=1. If Perl version >= 5.7.2, then the

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.22 2002/07/19 17:28:47 rich Exp $
+# $Id: Makefile.PL,v 1.23 2003/01/06 07:11:53 rbrown Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -216,25 +216,6 @@ my @args = (
 	     #Makefile => "lib/Net/FTPServer.pm",
 	    },
 	   );
-
-# The XS code for safe signals isn't required on Perl >= 5.7.2.
-if ($] < 5.00702)
-  {
-    push @args, (
-		 DEFINE => '',
-		 LIBS => [''],
-		 INC => '',
-		 XS => { 'FTPServer.xs' => 'FTPServer.c' },
-		 C => [ 'FTPServer.c' ],
-		);
-  }
-else
-  {
-    push @args, (
-		 XS => { },
-		 C => [ ],
-		);
-  }
 
 WriteMakefile @args;
 
