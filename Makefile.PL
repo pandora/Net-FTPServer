@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.7 2001/07/24 09:54:35 rich Exp $
+# $Id: Makefile.PL,v 1.13 2001/07/31 12:51:57 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -64,13 +64,20 @@ my %modules
        "Digest::MD5 is missing. This module is required in order for the\n".
        "SITE CHECKSUM command to work.\n"
      },
+     'DynaLoader' => { status => "required" },
      'Fcntl' => { status => "required" },
+     'File::Sync' =>
+     { status => "optional",
+       message =>
+       "File::Sync is missing. The SITE SYNC command will not work.\n"
+     },
      'Getopt::Long' => { status => "required" },
      'IO::Dir' => { status => "required", package => "IO" },
      'IO::File' => { status => "required", package => "IO" },
      'IO::Handle' => { status => "required", package => "IO" },
      'IO::Scalar' => { status => "required", package => "IO-stringy",
 		       version => "1.126" },
+     'IO::Select' => { status => "required", package => "IO" },
      'IO::Socket' => { status => "required", package => "IO" },
      'POSIX' => { status => "required" },
      'Socket' => { status => "required" },
@@ -145,9 +152,23 @@ EOT
     exit 1;
   }
 
+# Check for at least Perl 5.00503.
+if ($] < 5.00503)
+  {
+    print <<EOT;
+Perl version >= 5.00503 is required.
+
+EOT
+    exit 1;
+  }
+
 WriteMakefile(
 	      NAME => "Net::FTPServer",
 	      VERSION_FROM => "lib/Net/FTPServer.pm",
+
+	      DEFINE => '',
+	      LIBS => [''],
+	      INC => '',
 
 	      dist =>
 	      {
@@ -168,8 +189,8 @@ WriteMakefile(
 	      depend =>
 	      {
 	       dist => 'Net-FTPServer.spec',
-	       #'Net-FTPServer.spec' => '$(VERSION_FROM)',
-	       #Makefile => '$(VERSION_FROM)',
+	       #'Net-FTPServer.spec' => "lib/Net/FTPServer.pm",
+	       #Makefile => "lib/Net/FTPServer.pm",
 	      },
 	     );
 

@@ -4,6 +4,7 @@ Build
 Build.local
 COPYING
 FAQ
+FTPServer.xs
 INSTALL
 MANIFEST
 Makefile.PL
@@ -12,9 +13,10 @@ README
 RollingBuild
 TODO
 dbeg1-ftpd
-doc/rfcs.txt
 doc/eg1-psql63.sql
 doc/eg1.sql
+doc/rfcs.txt
+doc/safesignals.txt
 ftpd
 ftpd.conf
 inmem-ftpd

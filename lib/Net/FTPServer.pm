@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.113 2001/07/26 13:49:01 rich Exp $
+# $Id: FTPServer.pm,v 1.124 2001/07/31 12:44:36 rich Exp $
 
 =pod
 
@@ -1281,6 +1281,7 @@ are:
   SITE CHECKMETHOD  Implement checksums.
   SITE CHECKSUM
   SITE IDLE         Get or set the idle timeout.
+  SITE SYNC         Synchronize hard disks.
 
 The following commands are found in C<wu-ftpd>, but not currently
 implemented by C<Net::FTPServer>: SITE CHMOD, SITE GPASS, SITE GROUP,
@@ -1439,7 +1440,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.113 2001/07/26 13:49:01 rich Exp $
+  200-$Id: FTPServer.pm,v 1.124 2001/07/31 12:44:36 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1729,15 +1730,23 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.23';
+$VERSION = '1.0.24';
 $RELEASE = 6;
 
+# Implement dynamic loading of XSUB code.
+require DynaLoader;
+
+use vars qw(@ISA);
+@ISA = qw(DynaLoader);
+
+# Non-optional modules.
 use Config;
 use Getopt::Long qw(GetOptions);
 use Sys::Hostname;
 use Socket;
 use IO::Socket;
 use IO::File;
+use IO::Select;
 use Carp;
 use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
 use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
@@ -1750,14 +1759,21 @@ use Net::FTPServer::DirHandle;
 # (Thanks to Rob Brown for this fix.)
 
 BEGIN {
-  local $^W=0;
+  local $^W = 0;
   require Sys::Syslog;
 }
 
-# We need to make sure this is evaluated, because the
-# BSD::Resource module is optional, and may not be available.
-eval 'use BSD::Resource;';
+# The following modules are optional, and therefore we need
+# to eval the require/use statements. Before using the features
+# of an optional module, make sure it exists first by checking
+# ``exists $INC{"Module/Name.pm"}'' (see below for examples).
+eval "use BSD::Resource;";
+eval "use File::Sync;";
 
+# Load the signal handling code.
+bootstrap Net::FTPServer $VERSION;
+
+# Global variables and constants.
 use vars qw(@_default_commands
 	    @_default_site_commands
 	    @_supported_mlst_facts
@@ -1796,6 +1812,8 @@ use vars qw(@_default_commands
      # Wu-FTPD compatible extensions.
      "ALIAS", "CDPATH", "CHECKMETHOD", "CHECKSUM",
      "IDLE",
+     # Net::FTPServer compatible extensions.
+     "SYNC",
     );
 
 @_supported_mlst_facts
@@ -1890,10 +1908,6 @@ sub run
       $self->config ("max clients message") ||
 	"Maximum connections reached";
 
-    # Clear urgent flag. We must do this since it is set in a signal
-    # handler, and we want to avoid allocating memory there.
-    $self->{_urgent} = 0;
-
     # Open syslog.
     $self->{_enable_syslog} =
       (!defined $self->config ("enable syslog") ||
@@ -1937,16 +1951,11 @@ sub run
 	};
       }
 
-    # Set up signal handlers to give us a clean exit.
-    # NB:
-    # (1) These are inherited if we fork.
-    # (2) You must be very very careful not to allocate or deallocate
-    #     memory inside a signal handler. Doing so will corrupt memory
-    #     and cause the parent to die with errors like this:
-    #       Attempt to free unreferenced scalar
-    #       Attempt to free non-existent shared string
-    #       Segmentation fault
-    #
+    # Install safe signal handlers.
+    _install_signals ();
+
+    # The following signal handlers can be handled by Perl, since
+    # all they are going to do is exit anyway.
     $SIG{PIPE} = sub {
       $self->log ("info", "client closed connection abruptly") if $self;
       exit;
@@ -1965,18 +1974,11 @@ sub run
       $self->log ("info", "exiting on keyboard QUIT signal");
       exit;
     };
-    $SIG{HUP} = sub {
-      $self->log ("info", "exiting on HUP signal");
-      exit;
-    };
     $SIG{ALRM} = sub {
       $self->log ("info", "exiting on ALRM signal");
       print "421 Server closed the connection after idle timeout.\r\n";
       $self->_log_line ("[TIMED OUT!]");
       exit;
-    };
-    $SIG{URG} = sub {
-      $self->{_urgent} = 1;
     };
 
     # Setup Client Logging.
@@ -2016,7 +2018,7 @@ sub run
 	$log_file =~ s/\$(\w+)/$self->{$1}/g;
 	if ($log_file =~ m%^([/\w\-\.]+)$%)
 	  {
-	    $self->{_log_file} = $log_file = $1;
+	    $self->{_xfer_file} = $log_file = $1;
 	  }
 	else
 	  {
@@ -2073,43 +2075,6 @@ sub run
 	  }
 
 	$self->_save_pid;
-
-	local $SIG{TERM} = sub {
-	  $self->log ("info", "shutting down daemon");
-	  $self->_log_line ("[DAEMON Shutdown]");
-	  exit;
-	};
-
-	local $SIG{HUP} = sub {
-	  # Added 26 Feb 2001 by Rob Brown <rbrown@about-inc.com>
-
-	  # RWMJ: This code is unsafe, since it does memory allocation
-	  # and deallocation in the parent process in a signal handler. XXX
-
-	  # Code to allow priviledged port bind()ing capability by
-	  # unpriviledged user by reusing an already-bind()ed file
-	  # descriptor.
-
-	  # Duplicate bind()ed socket _ctrl_sock so the old one can be closed.
-	  my $fake = new IO::Socket::INET;
-	  $fake->fdopen (dup ($self->{_ctrl_sock}->fileno), "w");
-
-	  # Make sure its FD_CLOEXEC bit is off so the exec'ed process
-	  # can still use it.
-	  $fake->fcntl (F_SETFD, my $flags = "");
-
-	  # ENV will also be available to the exec'ed process.
-	  $ENV{BIND} = $fake->fileno;
-
-	  # Shutdown old _ctrl_sock to kick out of the blocking accept() call.
-	  $self->{_ctrl_sock}->close;
-
-	  # Preserve the new file descriptor until exec is called.
-	  $self->{_hup} = $fake;
-
-	  $self->log ("info", "received SIGHUP, Reloading configuration");
-	  $self->_log_line ("[DAEMON Reloading configuration]");
-	};
 
 	# Run as a daemon.
 	$self->_be_daemon;
@@ -2454,6 +2419,8 @@ sub run
 	# as a line ending character.
 	last unless defined ($_ = <STDIN>);
 
+	$self->_check_signals;
+
 	# Immediately terminate if the parent died.
 	# In standalone mode, this means the main daemon has terminated.
 	# In inet mode, this means that inetd itself has terminated.
@@ -2545,6 +2512,80 @@ sub run
 
     $self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
     $self->log ("info", "connection terminated normally");
+  }
+
+# Signals are handled synchronously to get around the problem
+# with unsafe signals which exists in Perl < 5.7. Call the
+# following function periodically to check signals.
+sub _check_signals
+  {
+    my $self = shift;
+    my $sig = _test_and_clear_signals ();
+    return unless $sig;
+
+    if ($sig & (1 << &SIGURG))
+      {
+	$self->_handle_sigurg;
+	$sig &= ~(1 << &SIGURG);
+      }
+
+    if ($sig & (1 << &SIGCHLD))
+      {
+	$self->_handle_sigchld;
+	$sig &= ~(1 << &SIGCHLD);
+      }
+
+    if ($sig & (1 << &SIGHUP))
+      {
+	$self->_handle_sighup;
+	$sig &= ~(1 << &SIGHUP);
+      }
+
+    if ($sig)
+      {
+	warn sprintf ("unprocessed signals: %032b", $sig);
+      }
+  }
+
+sub _handle_sigurg
+  {
+    my $self = shift;
+
+    $self->{_urgent} = 1;
+  }
+
+# Handle SIGCHLD signal synchronously in the parent process.
+sub _handle_sigchld
+  {
+    my $self = shift;
+
+    # Clear up any zombie processes.
+    while ((my $pid = waitpid (-1, WNOHANG)) > 0)
+      {
+	# Remove this PID from the children hash.
+	delete $self->{_children}->{$pid};
+      }
+  }
+
+# Handle SIGHUP signal synchronously in the parent process.
+# This code mostly by Rob, rewritten and simplified by Rich for
+# the new synchronous signal handling code.
+sub _handle_sighup
+  {
+    my $self = shift;
+
+    # Clear FD_CLOEXEC bit on the listening socket because we are
+    # intending to pass that socket to our exec'd child process.
+    $self->{_ctrl_sock}->fcntl (F_SETFD, my $flags = "");
+
+    # Make the socket available to the child process in the environment.
+    $ENV{BIND} = $self->{_ctrl_sock}->fileno;
+
+    # Print a message to syslog.
+    $self->log ("info", "received SIGHUP, reloading");
+
+    # Restart self.
+    exec ($0, @ARGV);
   }
 
 # Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
@@ -2699,15 +2740,10 @@ sub _fork_into_background
     # Start a new session.
     setsid;
 
-    # Close connection to tty and reopen 0, 1, 2 as /dev/null.
-    # XXX Doesn't work. I've tried several variations on this
-    # but haven't managed to make it work.
-#    POSIX::close (0);
-#    POSIX::close (1);
-#    POSIX::close (2);
-#    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
-#    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
-#    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
+    # Close connection to tty and reopen 0, 1 as /dev/null.
+    # Note that 2 points to the error log.
+    open STDIN, "</dev/null";
+    open STDOUT, ">/dev/null";
 
     $self->log ("info", "forked into background");
   }
@@ -2721,33 +2757,9 @@ sub _be_daemon
     $self->log ("info", "operating in daemon mode");
     $self->_log_line ("[DAEMON Started]");
 
-    # Discover the default FTP port from /etc/services or equivalent.
-    my $default_port = getservbyname "ftp", "tcp" || 21;
-
-    # Construct argument list to socket.
-    my @args = (Reuse => 1,
-		Proto => "tcp",
-		Type => SOCK_STREAM,
-		LocalPort =>
-		defined $self->{_args_ctrl_port}
-		? $self->{_args_ctrl_port}
-		: (defined $self->config ("port")
-		   ? $self->config ("port")
-		   : $default_port));
-
-    # Get length of listen queue.
-    if (defined $self->config ("listen queue")) {
-      push @args, Listen => $self->config ("listen queue")
-    } else {
-      push @args, Listen => 10
-    }
-
-    # Get the local bind address.
-    if (defined $self->config ("local address")) {
-      push @args, LocalAddr => $self->config ("local address")
-    }
-
-    # If existing socket already bind()ed, use that one
+    # If the process receives SIGHUP, then it passes in the socket
+    # fd here through the BIND environment variable. Check for this,
+    # because if so we don't need to open a new listening socket.
     if (exists $ENV{BIND} && $ENV{BIND} =~ /^(\d+)$/)
       {
 	my $bind_fd = $1;
@@ -2755,8 +2767,35 @@ sub _be_daemon
 	$self->{_ctrl_sock}->fdopen ($bind_fd, "w")
 	  or die "socket: $!";
       }
+    # Otherwise do open a new listening socket.
     else
       {
+	# Discover the default FTP port from /etc/services or equivalent.
+	my $default_port = getservbyname "ftp", "tcp" || 21;
+
+	# Construct argument list to socket.
+	my @args = (Reuse => 1,
+		    Proto => "tcp",
+		    Type => SOCK_STREAM,
+		    LocalPort =>
+		    defined $self->{_args_ctrl_port}
+		    ? $self->{_args_ctrl_port}
+		    : (defined $self->config ("port")
+		       ? $self->config ("port")
+		       : $default_port));
+
+	# Get length of listen queue.
+	if (defined $self->config ("listen queue")) {
+	  push @args, Listen => $self->config ("listen queue");
+	} else {
+	  push @args, Listen => 10;
+	}
+
+	# Get the local bind address.
+	if (defined $self->config ("local address")) {
+	  push @args, LocalAddr => $self->config ("local address")
+	}
+
 	# Open a socket on the control port.
 	$self->{_ctrl_sock} =
 	  new IO::Socket::INET (@args)
@@ -2772,26 +2811,14 @@ sub _be_daemon
 
     # Initialize the children hash ref for max clients enforcement
     $self->{_children} = {};
-    $self->{_smelled_zombie} = 0;
 
     $self->post_bind_hook;
-
-    # SIGCHLD is triggered when a child process exits
-    $SIG{CHLD} = sub
-      {
-	# Clear Zombies
-	while (waitpid (-1,WNOHANG) > 0)
-	  {
-	    $self->{_smelled_zombie} = 1;
-	  }
-      };
 
     # Accept new connections and fork off new process to handle it.
     for (;;)
       {
 	$self->pre_accept_hook;
-	if (!$self->{_ctrl_sock}->opened &&
-	    !exists $self->{_hup})
+	if (!$self->{_ctrl_sock}->opened)
 	  {
 	    die "control socket crashed somehow";
 	  }
@@ -2801,34 +2828,29 @@ sub _be_daemon
 	# to do is to retry the accept, not die. Thanks to
 	# rbrown@about-inc.com for pointing this one out :-)
 
+	# Because we are now handling signals synchronously, and because
+	# signals are restartable, we want to periodically check for
+	# signals. Thus the following code swaps between blocking on the
+	# accept for 3 seconds and checking signals. The load on the
+	# processor is insignificant (if you're worried about the load,
+	# perhaps you should be using inetd?).
+
 	my $sock;
+	my $selector = new IO::Select;
+	$selector->add ($self->{_ctrl_sock});
 
 	until (defined $sock)
 	  {
-	    $sock = $self->{_ctrl_sock}->accept
-	      if $self->{_ctrl_sock}->opened;
+	    my @ready = $selector->can_read (3);
 
-	    # Received SIGHUP? Restart self.
-	    if (exists $self->{_hup})
+	    $self->_check_signals;
+
+	    if (@ready > 0)
 	      {
-		exec ($0,@ARGV);
+		$sock = $self->{_ctrl_sock}->accept;
+		warn "accept: $!" unless defined $sock;
 	      }
-
-	    warn "accept: $!" unless defined $sock;
 	  }
-
-	if ($self->{_smelled_zombie}) {
-	  # Try to forget about the dead children to save memory
-	  # and to make concurrent_connections perfectly accurate.
-	  foreach (keys %{$self->{_children}})
-	    {
-	      # Quickly send a test signal to make sure all the
-	      # _children processes are still running.  If not,
-	      # remove it from the _children hash.
-	      delete $self->{_children}->{$_} unless kill 0, $_;
-	    }
-	  $self->{_smelled_zombie} = 0;
-	}
 
 	if ($self->concurrent_connections >= $self->{_max_clients})
 	  {
@@ -2853,6 +2875,12 @@ sub _be_daemon
 		# Don't handle SIGCHLD in the child process, in case the
 		# personality tries to launch subprocesses.
 		$SIG{CHLD} = "DEFAULT";
+
+		# SIGHUP in the child process exits immediately.
+		$SIG{HUP} = sub {
+		  $self->log ("info", "exiting on HUP signal");
+		  exit;
+		};
 
 		# Wipe the hash within the child process to save memory
 		$self->{_children} = $self->concurrent_connections;
@@ -4247,6 +4275,8 @@ sub _RETR_command
 		$n += $w;
 	      }
 
+	    $self->_check_signals;
+
 	    # Transfer aborted by client?
 	    if ($self->{_urgent})
 	      {
@@ -4301,6 +4331,8 @@ sub _RETR_command
 			      "Data connection has been closed.");
 		return;
 	      }
+
+	    $self->_check_signals;
 
 	    # Write the line with telnet-format line endings.
 	    $sock->print ("$_\r\n");
@@ -4985,6 +5017,23 @@ sub _SITE_IDLE_command
     $self->{_idle_timeout} = $rest;
 
     $self->reply (200, "Current idle timeout set to $self->{_idle_timeout} seconds.");
+  }
+
+sub _SITE_SYNC_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    unless (exists $INC{"File/Sync.pm"})
+      {
+	$self->reply (500, "Synchronization not available on this server.");
+	return;
+      }
+
+    File::Sync::sync ();
+
+    $self->reply (200, "Disks synchronized.");
   }
 
 sub _SYST_command

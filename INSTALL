@@ -1,4 +1,4 @@
-$Id: INSTALL,v 1.4 2001/07/13 09:32:00 rich Exp $
+$Id: INSTALL,v 1.5 2001/07/31 12:51:57 rich Exp $
 
 Installing Net::FTPServer
 -------------------------
@@ -13,6 +13,8 @@ Prerequisites:
 
   Digest::MD5      optional       If you want the SITE CHECKSUM command
                                   to work correctly.
+
+  File::Sync       optional	  Needed for SITE SYNC command.
 
   Getopt::Long     required       This is usually supplied as part of the
                                   basic Perl package.

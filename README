@@ -1,4 +1,4 @@
-$Id: README,v 1.18 2001/07/26 13:49:00 rich Exp $
+$Id: README,v 1.21 2001/07/31 10:38:20 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -63,6 +63,10 @@ Send feedback, bug reports, questions and patches to the author,
 Richard Jones <rich@annexia.org>.
 
 CHANGE LOG
+
+Version 1.0.24: Added SITE SYNC command (needs optional File::Sync
+package from CPAN). Implemented safe signals (see
+doc/safesignals.txt).
 
 Version 1.0.23: In Full personality, load Authen::PAM before forking.
 Removed some race conditions involving allocating and deallocating
