@@ -329,18 +329,22 @@ package Net::FTPServer;
 
 use strict;
 
+use vars qw($VERSION $RELEASE);
+
+$VERSION = '0.5.1';
+$RELEASE = 1;
+
 use Getopt::Long qw(GetOptions);
 use Sys::Hostname;
 use Sys::Syslog qw(:DEFAULT setlogsock);
 use Socket;
 use IO::Socket;
-use IO::Socket::INET;
 use IO::File;
-use POSIX;
 use BSD::Resource;
 use Carp;
 use Digest::MD5;
 use Authen::PAM;
+use POSIX qw(setsid dup2 ceil strftime);
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
@@ -348,11 +352,7 @@ use Net::FTPServer::DirHandle;
 use vars qw(@_default_commands
 	    @_default_site_commands
 	    @_supported_mlst_facts
-	    $_default_timeout
-	    $VERSION $RELEASE);
-
-$VERSION = '0.5.0';
-$RELEASE = 1;
+	    $_default_timeout);
 
 @_default_commands
   = (
@@ -874,7 +874,7 @@ sub _fork_into_background
     exit if $pid > 0;
 
     # Start a new session.
-    POSIX::setsid;
+    setsid;
 
     # Close connection to tty and reopen 0, 1, 2 as /dev/null.
     # XXX Doesn't work. I've tried several variations on this
@@ -954,8 +954,8 @@ sub _be_daemon
 		
 		# Duplicate the socket so it looks like we were called
 		# from inetd.
-		POSIX::dup2 ($sock->fileno, 0);
-		POSIX::dup2 ($sock->fileno, 1);
+		dup2 ($sock->fileno, 0);
+		dup2 ($sock->fileno, 1);
 
 		# Return to the main process to handle the rest of
 		# the connection.
@@ -2797,7 +2797,7 @@ sub _format_list
   {
     my @lines = ();
     my ($r, $c);
-    my $rows = int (POSIX::ceil (@_ / 4.));
+    my $rows = int (ceil (@_ / 4.));
 
     for ($r = 0; $r < $rows; ++$r)
       {
@@ -3040,7 +3040,7 @@ sub _MDTM_command
 
     # Format the modification time. See draft-ietf-ftpext-mlst-11.txt
     # sections 2.3 and 3.1.
-    my $fmt_time = POSIX::strftime "%Y%m%d%H%M%S", gmtime ($time);
+    my $fmt_time = strftime "%Y%m%d%H%M%S", gmtime ($time);
 
     $self->reply (213, $fmt_time);
   }
@@ -3280,7 +3280,7 @@ sub _mlst_format
 	  }
 	elsif ($_ eq "MODIFY")
 	  {
-	    my $fmt_time = POSIX::strftime "%Y%m%d%H%M%S", gmtime ($mtime);
+	    my $fmt_time = strftime "%Y%m%d%H%M%S", gmtime ($mtime);
 	    push @facts, "$_=$fmt_time";
 	  }
 	elsif ($_ eq "PERM")
@@ -3666,7 +3666,7 @@ sub _list_file
 	$fmt = "%b %e %H:%M";
       }
 
-    my $fmt_time = POSIX::strftime $fmt, gmtime ($mtime);
+    my $fmt_time = strftime $fmt, gmtime ($mtime);
 
     # Display the file.
     $sock->printf ("%s%s%s%s%s%s%s%s%s%s%4d %-8s %-8s %8d %s %s\r\n",

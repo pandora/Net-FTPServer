@@ -33,9 +33,8 @@ WriteMakefile(
 	       Digest::MD5 => 0,
 	       Getopt::Long => 0,
 	       IO::Dir => 0,
-	       IO::File => 0,
+	       #IO::File => 0,
 	       IO::Socket => 0,
-	       IO::Socket::INET => 0,
 	       POSIX => 0,
 	       Socket => 0,
 	       Sys::Hostname => 0,
@@ -62,7 +61,7 @@ WriteMakefile(
 	      {
 	       dist => 'Net-FTPServer.spec',
 	       #'Net-FTPServer.spec' => '$(VERSION_FROM)',
-	       Makefile => '$(VERSION_FROM)',
+	       #Makefile => '$(VERSION_FROM)',
 	      },
 	     );
 
