@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.1 2001/02/08 14:38:49 rich Exp $
+# $Id: FileHandle.pm,v 1.2 2001/10/10 10:05:36 rich Exp $
 
 =pod
 
@@ -188,31 +188,6 @@ sub delete
     $self->{ftps}{fs_dbh}->func ($self->{fs_content}, 'lo_unlink');
 
     return 0;
-  }
-
-sub can_read
-  {
-    return 1;
-  }
-
-sub can_write
-  {
-    return 1;
-  }
-
-sub can_append
-  {
-    return 1;
-  }
-
-sub can_rename
-  {
-    return 1;
-  }
-
-sub can_delete
-  {
-    return 1;
   }
 
 1 # So that the require or use succeeds.

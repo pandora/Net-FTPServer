@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.4 2001/06/12 17:08:47 rbrown Exp $
+# $Id: DirHandle.pm,v 1.5 2001/10/10 10:05:36 rich Exp $
 
 =pod
 
@@ -458,36 +458,6 @@ sub open
       {
 	croak "unknown file mode: $mode; use 'r', 'w' or 'a' instead";
       }
-  }
-
-sub can_write
-  {
-    return 1;
-  }
-
-sub can_delete
-  {
-    return 1;
-  }
-
-sub can_enter
-  {
-    return 1;
-  }
-
-sub can_list
-  {
-    return 1;
-  }
-
-sub can_rename
-  {
-    return 1;
-  }
-
-sub can_mkdir
-  {
-    return 1;
   }
 
 1 # So that the require or use succeeds.

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.7 2001/07/25 19:18:23 rich Exp $
+# $Id: DirHandle.pm,v 1.9 2001/10/10 10:05:36 rich Exp $
 
 =pod
 
@@ -160,7 +160,7 @@ sub list
       {
 	my $handle
 	  = -d "$self->{_pathname}$file"
-	    ? Net::FTPServer::Full::DirHandle->new ($self->{ftps}, $self->{_pathname} . $file)
+	    ? Net::FTPServer::Full::DirHandle->new ($self->{ftps}, $self->{_pathname} . $file . "/")
 	    : Net::FTPServer::Full::FileHandle->new ($self->{ftps}, $self->{_pathname} . $file);
 
 	push @array, [ $file, $handle ];
@@ -349,104 +349,6 @@ sub open
     die if $filename =~ /\//;	# Should never happen.
 
     return new IO::File $self->{_pathname} . $filename, $mode;
-  }
-
-=pod
-
-=item $rv = $dirh->can_write;
-
-Return true if the current user can write into the current
-directory (ie. create files, rename files, delete files, etc.).
-
-=cut
-
-sub can_write
-  {
-    my $self = shift;
-
-    return -w $self->{_pathname};
-  }
-
-=pod
-
-=item $rv = $dirh->can_delete;
-
-Return true if the current user can delete the current
-directory.
-
-=cut
-
-sub can_delete
-  {
-    my $self = shift;
-
-    return 0 if $self->is_root;
-
-    return $self->parent->can_write;
-  }
-
-=pod
-
-=item $rv = $dirh->can_enter;
-
-Return true if the current user can enter the current
-directory.
-
-=cut
-
-sub can_enter
-  {
-    my $self = shift;
-
-    return -x $self->{_pathname};
-  }
-
-=pod
-
-=item $rv = $dirh->can_list;
-
-Return true if the current user can list the current
-directory.
-
-=cut
-
-sub can_list
-  {
-    my $self = shift;
-
-    return -r $self->{_pathname};
-  }
-
-=pod
-
-=item $rv = $dirh->can_rename;
-
-Return true if the current user can rename the current
-directory.
-
-=cut
-
-sub can_rename
-  {
-    my $self = shift;
-
-    return $self->parent->can_write;
-  }
-
-=pod
-
-=item $rv = $dirh->can_mkdir;
-
-Return true if the current user can create subdirectories of the
-current directory.
-
-=cut
-
-sub can_mkdir
-  {
-    my $self = shift;
-
-    return -w $self->{_pathname};
   }
 
 1 # So that the require or use succeeds.

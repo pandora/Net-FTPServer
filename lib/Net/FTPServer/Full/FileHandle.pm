@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.4 2001/07/25 19:18:23 rich Exp $
+# $Id: FileHandle.pm,v 1.5 2001/10/10 10:05:37 rich Exp $
 
 =pod
 
@@ -193,81 +193,6 @@ sub delete
     unlink $self->{_pathname} or return -1;
 
     return 0;
-  }
-
-=pod
-
-=item $rv = $fileh->can_read;
-
-Return true if the current user can read the given file.
-
-=cut
-
-sub can_read
-  {
-    my $self = shift;
-
-    return -r $self->{_pathname};
-  }
-
-=pod
-
-=item $rv = $fileh->can_write;
-
-Return true if the current user can overwrite the given file.
-
-=cut
-
-sub can_write
-  {
-    my $self = shift;
-
-    return -w $self->{_pathname};
-  }
-
-=pod
-
-=item $rv = $fileh->can_append
-
-Return true if the current user can append to the given file.
-
-=cut
-
-sub can_append
-  {
-    my $self = shift;
-
-    return -w $self->{_pathname};
-  }
-
-=pod
-
-=item $rv = $fileh->can_rename;
-
-Return true if the current user can change the name of the given file.
-
-=cut
-
-sub can_rename
-  {
-    my $self = shift;
-
-    return $self->dir->can_write;
-  }
-
-=pod
-
-=item $rv = $fileh->can_delete;
-
-Return true if the current user can delete the given file.
-
-=cut
-
-sub can_delete
-  {
-    my $self = shift;
-
-    return $self->dir->can_write;
   }
 
 1 # So that the require or use succeeds.

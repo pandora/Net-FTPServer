@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.3 2001/05/25 20:42:15 rbrown Exp $
+# $Id: DirHandle.pm,v 1.4 2001/10/10 10:05:35 rich Exp $
 
 =pod
 
@@ -239,90 +239,6 @@ returns a C<IO::File> handle object.
 =cut
 
 sub open
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_write;
-
-Return true if the current user can write into the current
-directory (ie. create files, rename files, delete files, etc.).
-
-=cut
-
-sub can_write
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_delete;
-
-Return true if the current user can delete the current
-directory.
-
-=cut
-
-sub can_delete
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_enter;
-
-Return true if the current user can enter the current
-directory.
-
-=cut
-
-sub can_enter
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_list;
-
-Return true if the current user can list the current
-directory.
-
-=cut
-
-sub can_list
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_rename;
-
-Return true if the current user can rename the current
-directory.
-
-=cut
-
-sub can_rename
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_mkdir;
-
-Return true if the current user can create subdirectories of the
-current directory.
-
-=cut
-
-sub can_mkdir
   {
     confess "virtual function";
   }

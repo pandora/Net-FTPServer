@@ -14,6 +14,7 @@ RollingBuild
 TODO
 dbeg1-ftpd
 doc/.cvsignore
+doc/archives.txt
 doc/eg1-psql63.sql
 doc/eg1.sql
 doc/press1.0.txt
@@ -77,3 +78,6 @@ t/320config.t
 t/320include.t
 t/320incwc.t
 t/330perl.t
+t/350filters.t
+t/350generatorlist.t
+t/350generatorzip.t

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.14 2001/08/27 09:17:48 rich Exp $
+# $Id: Makefile.PL,v 1.18 2001/09/21 14:53:58 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -32,6 +32,14 @@ use ExtUtils::MakeMaker;
 
 my %modules
   = (
+     'Archive::Zip' =>
+     { status => "optional",
+       version => "0.11",
+       message =>
+       "Archive::Zip is missing. This module is required if you want to\n".
+       "enable archive mode, which allows users to create ZIP files on\n".
+       "the fly from directories on the server.\n"
+     },
      'Authen::PAM' =>
      { status => "recommended",
        version => "0.12",
@@ -51,6 +59,14 @@ my %modules
        "to certain sorts of denial of service (DoS) attacks.\n"
      },
      'Carp' => { status => "required" },
+     'Compress::Zlib' =>
+     { status => "optional",
+       version => "1.14",
+       message =>
+       "Compress::Zlib is missing. This module is required if you want to\n".
+       "enable archive mode, which allows users to create ZIP files on\n".
+       "the fly from directories on the server.\n"
+     },
      'DBI' =>
      { status => "optional",
        message =>
@@ -77,8 +93,10 @@ my %modules
      'IO::Handle' => { status => "required", package => "IO" },
      'IO::Scalar' => { status => "required", package => "IO-stringy",
 		       version => "1.126" },
+     'IO::Seekable' => { status => "required" },
      'IO::Select' => { status => "required", package => "IO" },
      'IO::Socket' => { status => "required", package => "IO" },
+     'IPC::Open2' => { status => "required" },
      'POSIX' => { status => "required" },
      'Socket' => { status => "required" },
      'Sys::Hostname' => { status => "required" },

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.2 2001/02/18 23:19:58 rich Exp $
+# $Id: FileHandle.pm,v 1.3 2001/10/10 10:05:37 rich Exp $
 
 =pod
 
@@ -150,31 +150,6 @@ sub delete
     delete $Net::FTPServer::InMem::DirHandle::files{$self->{fs_file_id}};
 
     return 0;
-  }
-
-sub can_read
-  {
-    return 1;
-  }
-
-sub can_write
-  {
-    return 1;
-  }
-
-sub can_append
-  {
-    return 1;
-  }
-
-sub can_rename
-  {
-    return 1;
-  }
-
-sub can_delete
-  {
-    return 1;
   }
 
 1 # So that the require or use succeeds.

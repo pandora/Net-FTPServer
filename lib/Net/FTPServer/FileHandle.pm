@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.1 2001/02/08 14:38:47 rich Exp $
+# $Id: FileHandle.pm,v 1.2 2001/10/10 10:05:36 rich Exp $
 
 =pod
 
@@ -126,71 +126,6 @@ successful, then return 0, else if there was an error return -1.
 =cut
 
 sub delete
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $fileh->can_read;
-
-Return true if the current user can read the given file.
-
-=cut
-
-sub can_read
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $fileh->can_write;
-
-Return true if the current user can overwrite the given file.
-
-=cut
-
-sub can_write
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $fileh->can_append
-
-Return true if the current user can append to the given file.
-
-=cut
-
-sub can_append
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $fileh->can_rename;
-
-Return true if the current user can change the name of the given file.
-
-=cut
-
-sub can_rename
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $fileh->can_delete;
-
-Return true if the current user can delete the given file.
-
-=cut
-
-sub can_delete
   {
     confess "virtual function";
   }
