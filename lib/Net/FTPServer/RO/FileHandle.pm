@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.2 2001/05/29 16:48:55 rich Exp $
+# $Id: FileHandle.pm,v 1.3 2001/07/04 10:32:05 rich Exp $
 
 =pod
 
@@ -100,7 +100,7 @@ Return the file or directory status. The fields returned are:
   $mode     Mode        'd' = directory,
                         'f' = file,
                         and others as with
-                        the file(1) -type option.
+                        the find(1) -type option.
   $perms    Permissions Permissions in normal octal numeric format.
   $nlink    Link count
   $user     Username    In printable format.

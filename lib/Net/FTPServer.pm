@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.94 2001/07/03 16:55:10 rich Exp $
+# $Id: FTPServer.pm,v 1.98 2001/07/10 11:41:40 rich Exp $
 
 =pod
 
@@ -167,7 +167,7 @@ way you expect.
 
 =item debug
 
-Run with debugging. Equivalent to the command line -d option.
+Run with debugging. Equivalent to the command line C<-d> option.
 
 Default: 0
 
@@ -190,7 +190,7 @@ fork off a new process to handle each connection. If not set
 (the default), the FTP server will handle a single connection
 on stdin/stdout, which is suitable for use from inetd.
 
-The equivalent command line options are -s and -S.
+The equivalent command line options are C<-s> and C<-S>.
 
 Default: 0
 
@@ -201,7 +201,7 @@ Example: C<daemon mode: 1>
 Run in the background. If set, the FTP server will fork into
 the background before running.
 
-The equivalent command line option is -S.
+The equivalent command line option is C<-S>.
 
 Default: 0
 
@@ -1138,6 +1138,16 @@ use of C<require> if you need to run an external Perl script.
 The E<lt>PerlE<gt> and E<lt>/PerlE<gt> directives must each appear
 on a single line on their own.
 
+To assign multiple configuration options with the same name,
+use an array ref:
+
+ <Perl>
+ my @aliases = ( "foo /pub/foo",
+		 "bar /pub/bar",
+		 "baz /pub/baz" );
+ $config{alias} = \@aliases;
+ </Perl>
+
 You cannot use a E<lt>PerlE<gt> section within a E<lt>HostE<gt>
 section. Instead, you must simulate it by assigning to the
 C<%host_config> variable like this:
@@ -1166,6 +1176,63 @@ hole if you want. Here is a contrived example:
 
 A cleaner, but more complex way to do this would be to use
 a personality.
+
+The E<lt>PerlE<gt> directive is potentially quite powerful.
+Here is a good idea that Rob Brown had:
+
+ <Perl>
+ my %H;
+ dbmopen (%H, "/etc/ftpd.db", 0644);
+ %config = %H;
+ dbmclose (%H);
+ </Perl>
+
+Notice how this allows you to crunch a possibly very large
+configuration file into a hash, for very rapid loading at run time.
+
+Here is another powerful way to use E<lt>PerlE<gt>: namely
+to extend the range of command line arguments available:
+
+ <Perl>
+ my $mc;
+ GetOptions ("max-clients=i" => \$mc);
+ $config{'max clients'} = $mc if $mc;
+ </Perl>
+
+(A future version of Net::FTPServer will probably allow
+configuration options to be specified directly on the command
+line, but until then, use this method).
+
+Another useful example. Directory C</etc/ftpd/> contains a
+series of FTP server configuration files. Place the following
+code in C</etc/ftpd.conf> to load all of these files at run
+time. This uses some hairy FTP server internals.
+
+ <Perl>
+ map { $self->_open_config_file ($_) } sort glob "/etc/ftpd/*.conf";
+ </Perl>
+
+(A future version of Net::FTPServer will probably have an
+E<lt>IncludeWildcardE<gt> directive to allow this to be
+done more easily).
+
+HereE<39>s yet another wonderful way to use E<lt>PerlE<gt>.
+Look in C</usr/local/lib/ftp/> for a list of site commands
+and load each one:
+
+ <Perl>
+
+ my @files = glob "/usr/local/lib/ftp/*.pl";
+ my @site_commands;
+
+ foreach (@files)
+  {
+    push @site_commands, "$1 $_" if /([a-z]+)\.pl/;
+  }
+
+ $config{'site command'} = \@site_commands;
+
+ </Perl>
 
 =back 4
 
@@ -1326,7 +1393,11 @@ with different back-end personalities (in particular when
       }
 
     # Close the file handle.
-    $file->close;
+    unless ($file->close)
+      {
+	$self->reply (550, "Close failed: $!");
+	return;
+      }
 
     # Send the file back to the user.
     $self->reply (200, "File $filename:", @lines, "End of file.");
@@ -1344,7 +1415,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.94 2001/07/03 16:55:10 rich Exp $
+  200-$Id: FTPServer.pm,v 1.98 2001/07/10 11:41:40 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1634,8 +1705,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.19';
-$RELEASE = 3;
+$VERSION = '1.0.21';
+$RELEASE = 4;
 
 use Config;
 use Getopt::Long qw(GetOptions);
@@ -1644,9 +1715,7 @@ use Sys::Syslog qw();
 use Socket;
 use IO::Socket;
 use IO::File;
-use BSD::Resource;
 use Carp;
-use Digest::MD5;
 use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
 use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
 
@@ -2121,27 +2190,14 @@ sub run
     # Perform normal per-process limits.
     if ($r == 0)
       {
-	my $limits = get_rlimits ();
+	my $limit = 1024 * ($self->config ("limit memory") || 8192);
+	$self->_set_rlimit ("RLIMIT_DATA", $limit);
 
-	#warn "limits = ", join (", ", keys %$limits);
+	$limit = $self->config ("limit nr processes") || 5;
+	$self->_set_rlimit ("RLIMIT_NPROC", $limit);
 
-	if (exists $limits->{RLIMIT_DATA}) {
-	  my $limit = 1024 * ($self->config ("limit memory") || 8192);
-	  setrlimit (RLIMIT_DATA, $limit, $limit)
-	    or die "setrlimit: $!";
-	}
-
-	if (exists $limits->{RLIMIT_NPROC}) {
-	  my $limit = $self->config ("limit nr processes") || 5;
-	  setrlimit (RLIMIT_NPROC, $limit, $limit)
-	    or die "setrlimit: $!";
-	}
-
-	if (exists $limits->{RLIMIT_NOFILE}) {
-	  my $limit = $self->config ("limit nr files") || 20;
-	  setrlimit (RLIMIT_NOFILE, $limit, $limit)
-	    or die "setrlimit: $!";
-	}
+	$limit = $self->config ("limit nr files") || 20;
+	$self->_set_rlimit ("RLIMIT_NOFILE", $limit);
       }
 
     unless ($self->{_test_mode})
@@ -2442,6 +2498,44 @@ sub _save_pid
       }
   }
 
+# Set a resource limit, by using the BSD::Resource module, if available.
+
+sub _set_rlimit
+  {
+    my $self = shift;
+    my $name = shift;
+    my $value = shift;
+
+    # We need to make sure this is evaluated at runtime, because the
+    # BSD::Resource module is optional, and may not be available.
+
+    eval <<EOT;
+
+    use BSD::Resource;
+
+    if (exists get_rlimits()->{$name})
+      {
+	setrlimit ($name, $value, $value)
+	  or die "setrlimit: $!";
+      }
+    else
+      {
+	die "resource limit $name is not available";
+      }
+EOT
+
+    if ($@)
+      {
+	warn
+	  "Resource limit $name cannot be set. This may be because ",
+	  "the BSD::Resource module is not available on your ",
+	  "system, or it may be because your operating system ",
+	  "does not support $name. Without resource limits, the ",
+	  "FTP server may be open to denial of service (DoS) ",
+	  "attacks. The real error was: $@";
+      }
+  }
+
 # This subroutine loads the command line options and configuration file
 # and resolves conflicts. Command line options have priority over
 # certain things in the configuration file.
@@ -2455,6 +2549,7 @@ sub _get_configuration
     my ($debug, $help, $show_version);
 
     Getopt::Long::Configure ("no_ignore_case");
+    Getopt::Long::Configure ("pass_through");
 
     GetOptions ("d+" => \$debug,
 		"v+" => \$debug,
@@ -2839,8 +2934,17 @@ sub _open_config_file
 	    # and add those to the configuration.
 	    foreach (keys %config)
 	      {
-		$self->_set_config ($_, $config{$_},
-				    undef, $config_file, $lineno);
+		my $value = $config{$_};
+
+		unless (ref $value) {
+		  $self->_set_config ($_, $value,
+				      undef, $config_file, $lineno);
+		} else {
+		  foreach my $v (@$value) {
+		    $self->_set_config ($_, $v,
+					undef, $config_file, $lineno);
+		  }
+		}
 	      }
 
 	    my $host;
@@ -2848,8 +2952,17 @@ sub _open_config_file
 	      {
 		foreach (keys %{$host_config{$host}})
 		  {
-		    $self->_set_config ($_, $host_config{$host}{$_},
-					$host, $config_file, $lineno);
+		    my $value = $host_config{$host}{$_};
+
+		    unless (ref $value) {
+		      $self->_set_config ($_, $value,
+					  $host, $config_file, $lineno);
+		    } else {
+		      foreach my $v (@$value) {
+			$self->_set_config ($_, $v,
+					    $host, $config_file, $lineno);
+		      }
+		    }
 		  }
 	      }
 
@@ -4103,8 +4216,11 @@ sub _RETR_command
 	  }
       }
 
-    $sock->close;
-    $file->close;
+    unless ($sock->close && $file->close)
+      {
+	$self->reply (550, "File retrieval error: $!");
+	return;
+      }
 
     $self->reply (226, "File retrieval complete. Data connection has been closed.");
   }
@@ -4441,7 +4557,11 @@ sub _LIST_command
 	  }
       }
 
-    $sock->close;
+    unless ($sock->close)
+      {
+	$self->reply (550, "Error closing data connection: $!");
+	return;
+      }
 
     $self->reply (226, "Listing complete. Data connection has been closed.");
   }
@@ -4511,7 +4631,11 @@ sub _NLST_command
 	  }
       }
 
-    $sock->close;
+    unless ($sock->close)
+      {
+	$self->reply (550, "Error closing data connection: $!");
+	return;
+      }
 
     $self->reply (226, "Listing complete. Data connection has been closed.");
   }
@@ -4713,6 +4837,9 @@ sub _SITE_CHECKSUM_command
 	$self->reply (550, "File not found.");
 	return;
       }
+
+    # Don't "use" this file, because we want it to be optional.
+    require Digest::MD5;
 
     my $ctx = Digest::MD5->new;
     $ctx->addfile ($file);	# IO::Handles are also filehandle globs.
@@ -5284,7 +5411,11 @@ sub _MLSD_command
 	  }
       }
 
-    $sock->close;
+    unless ($sock->close)
+      {
+	$self->reply (550, "Error closing data connection: $!");
+	return;
+      }
 
     $self->reply (226, "Listing complete. Data connection has been closed.");
   }
@@ -6018,8 +6149,11 @@ sub _store
 	  }
       }
 
-    $sock->close;
-    $file->close;
+    unless ($sock->close && $file->close)
+      {
+	$self->reply (550, "File retrieval error: $!");
+	return;
+      }
 
     $self->reply (226, "File store complete. Data connection has been closed.");
   }
@@ -6391,7 +6525,6 @@ Copyright (C) 2000-2001 Richard Jones (rich@annexia.org).
 L<Net::FTPServer::Handle(3)>,
 L<Net::FTPServer::FileHandle(3)>,
 L<Net::FTPServer::DirHandle(3)>,
-L<Authen::PAM(3)>,
 L<Net::FTP(3)>,
 L<perl(1)>,
 RFC 765,

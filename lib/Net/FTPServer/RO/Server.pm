@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.2 2001/04/10 09:24:21 rich Exp $
+# $Id: Server.pm,v 1.3 2001/07/10 11:41:43 rich Exp $
 
 =pod
 
@@ -163,7 +163,6 @@ London, SW6 3EG, UK
 =head1 SEE ALSO
 
 L<Net::FTPServer(3)>,
-L<Authen::PAM(3)>,
 L<Net::FTP(3)>,
 L<perl(1)>,
 RFC 765,

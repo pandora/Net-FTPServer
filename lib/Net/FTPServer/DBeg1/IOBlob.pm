@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: IOBlob.pm,v 1.4 2001/02/19 20:21:40 rbrown Exp $
+# $Id: IOBlob.pm,v 1.5 2001/07/10 09:22:36 rich Exp $
 
 =pod
 
@@ -126,6 +126,8 @@ sub read
     my $offset = $_[2] || 0;
 
     $self->{dbh}->func ($self->{blob_fd}, substr ($_[0], $offset), $nbytes, 'lo_read');
+
+    return $nbytes;
   }
 
 sub sysread
@@ -135,6 +137,8 @@ sub sysread
     my $offset = $_[2] || 0;
 
     $self->{dbh}->func ($self->{blob_fd}, substr ($_[0], $offset), $nbytes, 'lo_read');
+
+    return $nbytes;
   }
 
 =item $io->write ($buffer, $nbytes, [$offset]);
@@ -154,6 +158,8 @@ sub write
     my $buffer = substr $_[0], $offset, $nbytes;
 
     $self->{dbh}->func ($self->{blob_fd}, $buffer, length $buffer, 'lo_write');
+
+    return $nbytes;
   }
 
 sub syswrite
@@ -165,6 +171,8 @@ sub syswrite
     my $buffer = substr $_[0], $offset, $nbytes;
 
     $self->{dbh}->func ($self->{blob_fd}, $buffer, length $buffer, 'lo_write');
+
+    return $nbytes;
   }
 
 =item $io->print ($buffer);
@@ -176,7 +184,7 @@ sub print
     my $self = shift;
     my $buffer = join "", @_;
 
-    $self->write ($buffer, length $buffer);
+    return $self->write ($buffer, length $buffer);
   }
 
 =item $io->close;
@@ -195,7 +203,7 @@ sub close
 	delete $self->{dbh};
       }
 
-    return 0;
+    return 1;
   }
 
 sub DESTROY

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.5 2001/06/12 17:08:48 rbrown Exp $
+# $Id: DirHandle.pm,v 1.6 2001/07/04 10:32:04 rich Exp $
 
 =pod
 
@@ -80,7 +80,7 @@ sub get
     confess ". filename"     if $filename eq ".";
 
     my $pathname = $self->{_pathname} . $filename;
-    lstat $pathname;
+    stat $pathname;
 
     if (-d _)
       {
@@ -213,7 +213,7 @@ Return the file or directory status. The fields returned are:
   $mode     Mode        'd' = directory,
                         'f' = file,
                         and others as with
-                        the file(1) -type option.
+                        the find(1) -type option.
   $perms    Permissions Permissions in normal octal numeric format.
   $nlink    Link count
   $user     Username    In printable format.

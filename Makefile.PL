@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.4 2001/06/19 17:36:01 rich Exp $
+# $Id: Makefile.PL,v 1.5 2001/07/10 11:41:40 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -21,27 +21,125 @@
 
 use ExtUtils::MakeMaker;
 
+# PREREQ_PM is crap! It doesn't enforce the prerequisites, and
+# doesn't print an intelligible error message. Nor does it understand
+# that some modules are optional, while others are absolutely
+# required. Do our own prerequisite checking here. A lot of this
+# code was borrowed from the Makefile.PL supplied with libwww-perl.
+#
+# NB. 'status' field is either 'required', for modules which are
+# required, or anything else for modules which are optional.
+
+my %modules
+  = (
+     'Authen::PAM' =>
+     { status => "recommended",
+       message =>
+       "Authen::PAM is missing. This module is required in order to\n".
+       "perform user authentication against the full FTP server\n".
+       "personality on most Unix platforms. Therefore unless you install\n".
+       "this module, normal FTP server configurations will most likely\n".
+       "not work.\n"
+     },
+     'BSD::Resource' =>
+     { status => "highly recommended",
+       message =>
+       "BSD::Resource is missing. This module is required in order to\n".
+       "place limits on the size of the FTP server process. Without this\n".
+       "module, the FTP server will still work, but it will be vulnerable\n".
+       "to certain sorts of denial of service (DoS) attacks.\n"
+     },
+     'Carp' => { status => "required" },
+     'DBI' =>
+     { status => "optional",
+       message =>
+       "DBI is missing. This module is required to run the test suite,\n".
+       "and also if you want to run the FTP server against a PostgreSQL\n".
+       "database.\n"
+     },
+     'Digest::MD5' =>
+     { status => "optional",
+       message =>
+       "Digest::MD5 is missing. This module is required in order for the\n".
+       "SITE CHECKSUM command to work.\n"
+     },
+     'Fcntl' => { status => "required" },
+     'Getopt::Long' => { status => "required" },
+     'IO::Dir' => { status => "required", package => "IO" },
+     'IO::File' => { status => "required", package => "IO" },
+     'IO::Handle' => { status => "required", package => "IO" },
+     'IO::Scalar' => { status => "required", package => "IO-stringy" },
+     'IO::Socket' => { status => "required", package => "IO" },
+     'POSIX' => { status => "required" },
+     'Socket' => { status => "required" },
+     'Sys::Hostname' => { status => "required" },
+     'Sys::Syslog' => { status => "required" },
+    );
+
+$| = 1;
+
+# Check for modules.
+
+my $missing_modules = 0;
+my $missing_required_modules = 0;
+
+foreach (sort keys %modules)
+  {
+    print "Checking for $modules{$_}{status} module $_ ... ";
+
+    eval "require $_";
+    if ($@)
+      {
+	$missing_modules++;
+	$missing_required_modules++ if $modules{$_}{status} eq "required";
+
+	print "not found.\n\n";
+
+	if (exists $modules{$_}{package})
+	  {
+	    print
+	      "This module is provided by the $modules{$_}{package} ",
+	      "package.\n\n";
+	  }
+
+	sleep 1;
+
+	if (exists $modules{$_}{message})
+	  {
+	    print "*** ", $modules{$_}{message}, "\n";
+	    sleep 5;
+	  }
+
+      }
+    else
+      {
+	print "ok.\n";
+      }
+  }
+
+print "\n";
+
+if ($missing_modules)
+  {
+    print <<EOT;
+Obtain missing modules from CPAN [http://www.cpan.org/].
+
+EOT
+    sleep 2;
+  }
+
+if ($missing_required_modules)
+  {
+    print <<EOT;
+Required modules are missing. Install these first.
+
+EOT
+    exit 1;
+  }
+
 WriteMakefile(
 	      NAME => "Net::FTPServer",
 	      VERSION_FROM => "lib/Net/FTPServer.pm",
-
-	      PREREQ_PM =>
-	      {
-	       Authen::PAM => 0,
-	       BSD::Resource => 0,
-	       Carp => 0,
-	       Digest::MD5 => 0,
-	       Getopt::Long => 0,
-	       IO::Dir => 0,
-	       #IO::File => 0,
-	       IO::Handle => 0,
-	       IO::Scalar => 0,
-	       IO::Socket => 0,
-	       POSIX => 0,
-	       Socket => 0,
-	       Sys::Hostname => 0,
-	       Sys::Syslog => 0,
-	      },
 
 	      dist =>
 	      {

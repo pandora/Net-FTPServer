@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.3 2001/04/10 09:24:20 rich Exp $
+# $Id: Server.pm,v 1.4 2001/07/10 11:41:43 rich Exp $
 
 =pod
 
@@ -46,8 +46,6 @@ FTP server with similar functionality to I<wu-ftpd>.
 package Net::FTPServer::Full::Server;
 
 use strict;
-
-use Authen::PAM;
 
 # Some magic which is required by CPAN. This is not the real version
 # number. If you want that, have a look at FTPServer::VERSION.
@@ -108,68 +106,86 @@ sub _pam_check_password
     # of an abuse of the PAM protocol. However the FTP protocol
     # gives us little choice in the matter.
 
-    eval
+    # Verify if Authen::PAM is available first, in order to give
+    # a nice error message in the system logs.
+    eval "require Authen::PAM";
+    die
+      "Authen::PAM module is not available, yet PAM authentication ",
+      "was requested in the configuration file. You will not be able ",
+      "to log in to this server. Fetch and install Authen::PAM from CPAN."
+	if $@;
+
+    # All variable uses in the following evaluated code have to
+    # be escaped. This code is really a big string!
+    eval <<EOT;
+
+    use Authen::PAM;
+
+    my \$pam_conv_func = sub
       {
-	my $pam_conv_func = sub
+	my \@res;
+
+	while (\@_)
 	  {
-	    my @res;
+	    my \$msg_type = shift;
+	    my \$msg = shift;
 
-	    while (@_)
+	    if (\$msg_type == PAM_PROMPT_ECHO_ON)
 	      {
-		my $msg_type = shift;
-		my $msg = shift;
-
-		if ($msg_type == PAM_PROMPT_ECHO_ON)
-		  {
-		    # XXX PAM_CONV_ERR not defined in Authen::PAM.
-		    return ( 19 );
-		  }
-		elsif ($msg_type == PAM_PROMPT_ECHO_OFF)
-		  {
-		    push @res, PAM_SUCCESS;
-		    push @res, $pass;
-		  }
-		elsif ($msg_type == PAM_TEXT_INFO)
-		  {
-		    push @res, PAM_SUCCESS;
-		    push @res, "";
-		  }
-		elsif ($msg_type == PAM_ERROR_MSG)
-		  {
-		    push @res, PAM_SUCCESS;
-		    push @res, "";
-		  }
-		else
-		  {
-		    # XXX PAM_CONV_ERR not defined in Authen::PAM.
-		    return ( 19 );
-		  }
+		# XXX PAM_CONV_ERR not defined in Authen::PAM.
+		return ( 19 );
 	      }
+	    elsif (\$msg_type == PAM_PROMPT_ECHO_OFF)
+	      {
+		push \@res, PAM_SUCCESS;
+		push \@res, \$pass;
+	      }
+	    elsif (\$msg_type == PAM_TEXT_INFO)
+	      {
+		push \@res, PAM_SUCCESS;
+		push \@res, "";
+	      }
+	    elsif (\$msg_type == PAM_ERROR_MSG)
+	      {
+		push \@res, PAM_SUCCESS;
+		push \@res, "";
+	      }
+	    else
+	      {
+		# XXX PAM_CONV_ERR not defined in Authen::PAM.
+		return ( 19 );
+	      }
+	  }
 
-	    push @res, PAM_SUCCESS;
-	    return @res;
-	  };
+	push \@res, PAM_SUCCESS;
+	return \@res;
+      };
 
-	my $pam_appl = $self->config ("pam application name") || "ftp";
-	my $pamh = new Authen::PAM ($pam_appl, $user, $pam_conv_func);
+    my \$pam_appl = \$self->config ("pam application name") || "ftp";
+    my \$pamh = Authen::PAM->new (\$pam_appl, \$user, \$pam_conv_func);
 
-	ref ($pamh) || die "PAM error: pam_start: $pamh";
+    ref (\$pamh) || die "PAM error: pam_start: \$pamh";
 
-	$pamh->pam_set_item (PAM_RHOST, $self->{peeraddrstring})
-	  == PAM_SUCCESS
-	    or die "PAM error: pam_set_item";
+    \$pamh->pam_set_item (PAM_RHOST, \$self->{peeraddrstring})
+      == PAM_SUCCESS
+	or die "PAM error: pam_set_item";
 
-	$pamh->pam_authenticate (0) == PAM_SUCCESS
-	  or die "PAM error: pam_authenticate";
+    \$pamh->pam_authenticate (0) == PAM_SUCCESS
+      or die "PAM error: pam_authenticate";
 
-	$pamh->pam_acct_mgmt (0) == PAM_SUCCESS
-	  or die "PAM error: pam_acct_mgmt";
+    \$pamh->pam_acct_mgmt (0) == PAM_SUCCESS
+      or die "PAM error: pam_acct_mgmt";
 
-	$pamh->pam_setcred (PAM_ESTABLISH_CRED) == PAM_SUCCESS
-	  or die "PAM error: pam_setcred";
-      }; # eval
+    \$pamh->pam_setcred (PAM_ESTABLISH_CRED) == PAM_SUCCESS
+      or die "PAM error: pam_setcred";
 
-    return -1 if $@;
+EOT
+
+    if ($@)
+      {
+	warn $@;
+	return -1;
+      }
 
     return 0;
   }

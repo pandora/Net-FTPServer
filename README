@@ -1,4 +1,4 @@
-$Id: README,v 1.7 2001/07/03 16:55:09 rich Exp $
+$Id: README,v 1.11 2001/07/10 11:41:40 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -21,6 +21,7 @@ Major features of Net::FTPServer include:
 * Virtual filesystem allows the FTP server to serve files from a
   SQL database.
 * Configurable and extensible in Perl.
+* <Perl> sections in ftpd.conf file.
 * Supports all the latest RFCs and Internet Drafts, including MLST,
   MLSD, FEAT, OPTS, LANG.
 * Secure by design and implementation.
@@ -62,6 +63,16 @@ Send feedback, bug reports, questions and patches to the author,
 Richard Jones <rich@annexia.org>.
 
 CHANGE LOG
+
+Version 1.0.21: More documentation on <Perl>. Allow array assignments
+to %config/%host_config elements. Always check the return value from
+"close". Replace "lstat" with "stat" (better handling of symbolic
+links, hopefully). Packages Authen::PAM, BSD::Resource and Digest::MD5
+are now truly optional. If you have not installed these packages, the
+server should still work (albeit with limited functionality) and
+should warn you when it needs to do something which requires an
+external package. Corrected pod2man warnings about command line
+options not being enclosed in C<> or B<>.
 
 Version 1.0.19: Ignore SIGCHLD in child processes (thanks to
 Duane Powell for finding this bug). The code which parses the
