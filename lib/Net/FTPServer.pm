@@ -1,3 +1,4 @@
+#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -18,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.186 2002/06/20 20:34:58 rich Exp $
+# $Id: FTPServer.pm,v 1.152.2.6 2002/07/05 14:46:24 rich Exp $
 
 =pod
 
@@ -53,7 +54,6 @@ Current features include:
    from a database.
  * Directory aliases and CDPATH support.
  * Extensible command set.
- * Generate archives on the fly.
 
 =head1 INSTALLING AND RUNNING THE SERVER
 
@@ -62,26 +62,22 @@ Full documentation for all the possible options which you
 may use in this file is contained in this manual page. See
 the section CONFIGURATION below.
 
-After doing C<make install>, the standard C<ftpd.conf> file should
-have been installed in C</etc/ftpd.conf>. You will probably need to
-edit this file to suit your local configuration.
+You should edit the standard file and then copy it
+to C</etc/ftpd.conf>:
 
-Also after doing C<make install>, several start-up scripts will have
-been installed in C</usr/sbin/*ftpd.pl>. (On Debian in C</usr/bin> or
-C</usr/local/bin>). Each start-up script starts the server in a
-different configuration: either as a full FTP server, or as an
-anonymous-only read-only FTP server, etc.
+  install -c -o root -g root -m 0644 ftpd.conf /etc/
 
-The commonly used scripts are:
+Two start-up scripts are supplied with the ftp server,
+to run it in two common configurations: either as a full
+FTP server or as an anonymous-only read-only FTP server. The
+scripts are C<ftpd> and C<ro-ftpd>. You may need to
+edit these scripts if Perl is not stored in the standard
+place on your system (the default path is C</usr/bin/perl>).
 
- * /usr/sbin/ftpd.pl
- * /usr/sbin/ro-ftpd.pl
+You should copy the appropriate script, either C<ftpd> or
+C<ro-ftpd> to a suitable place (for example: C</usr/sbin/in.ftpd>).
 
-The first script is for the full FTP server.
-
-These scripts assume that the C<perl> interpreter can be found on the
-current C<$PATH>. In the rare situation when this is not the case, you
-may need to edit these scripts.
+  install -c -o root -g root -m 0755 ftpd /usr/sbin/in.ftpd
 
 =head2 STANDALONE SERVER
 
@@ -89,24 +85,20 @@ If you have a high load site, you will want to run C<Net::FTPServer>
 as a standalone server. To start C<Net::FTPServer> as a standalone
 server, do:
 
-  /usr/sbin/ftpd.pl -S
+  /usr/sbin/in.ftpd -S
 
 You may want to add this to your local start-up files so that
 the server starts automatically when you boot the machine.
 
 To stop the server, do:
 
-  killall ftpd.pl
-
-(Note: C<Azazel> points out that the above is a Linux-ism. Solaris
-administrators may get a nasty shock if they type C<killall> as C<root>!
-Just kill the parent C<ftpd.pl> process by hand instead).
+  killall in.ftpd
 
 =head2 RUNNING FROM INETD
 
 Add the following line to C</etc/inetd.conf>:
 
-  ftp stream tcp nowait root /usr/sbin/tcpd ftpd.pl
+  ftp stream tcp nowait root /usr/sbin/tcpd in.ftpd
 
 (This assumes that you have the C<tcp-wrappers> package installed to
 provide basic access control through C</etc/hosts.allow> and
@@ -117,38 +109,6 @@ After editing this file you will need to inform C<inetd>:
 
   killall -HUP inetd
 
-=head2 RUNNING FROM XINETD
-
-C<xinetd> is a modern alternative to C<inetd> which is supposedly
-simpler to configure. In practice, however, it has proven to be quite
-difficult to configure services under C<xinetd> (mainly because
-C<xinetd> gives no diagnostic information when things go wrong). The
-following configuration has worked for me:
-
-Create the file C</etc/xinetd.d/net-ftpserver> containing:
-
- # default: on
- # description: Net::FTPServer, a secure, \
- #              extensible, configurable FTP server.
- #
- service ftp
- {
-        socket_type             = stream
-        wait                    = no
-        user                    = root
-        server                  = /usr/sbin/ftpd.pl
-        log_on_success          += DURATION USERID
-        log_on_failure          += USERID
-        disable                 = no
- }
-
-Check any other possible FTP server configurations to ensure they
-are all disabled (ie. C<disable = yes> in all other files).
-
-Restart C<xinetd> using:
-
- /etc/init.d/xinetd restart
-
 =head1 COMMAND LINE FLAGS
 
   --help           Display help and exit
@@ -157,8 +117,7 @@ Restart C<xinetd> using:
   -s               Run in daemon mode (default: run from inetd)
   -S               Run in background and in daemon mode
   -V               Show version information and exit
-  -C CONF          Use CONF as configuration file (default:
-                   /etc/ftpd.conf)
+  -C CONF          Use CONF as configuration file (default: /etc/ftpd.conf)
   -P PIDFILE       Save pid into PIDFILE (daemon mode only)
   -o option=value  Override config file option with value
   --test           Test mode (used only in automatic testing scripts)
@@ -187,13 +146,9 @@ The next sections talk about each of these possibilities in turn.
 
 =head2 CONFIGURATION
 
-A standard C</etc/ftpd.conf> file is supplied with C<Net::FTPServer>
-in the distribution. The possible configuration options are listed in
-full below.
-
-Simple configuration options can also be given on the command line
-using the C<-o> option. Command line configuration options override
-those from the configuration file.
+A standard C</etc/ftpd.conf> file is supplied with 
+C<Net::FTPServer> in the distribution. The possible
+configuration options are listed in full below.
 
 =over 4
 
@@ -278,51 +233,6 @@ Default: root@I<hostname>
 
 Example: C<maintainer email: bob@example.com>
 
-=item class
-
-Assign users into classes. One or more C<class> directives can be
-added to the configuration file to aggregate individual users into
-larger groups of users called classes.
-
-By default all anonymous users are in class C<anonymous> and every
-other user is in class C<users>.
-
-The configuration file can contain zero or more C<class>
-directives. The format of the class directive is either:
-
- class: CLASSNAME USERNAME[,USERNAME[,...]]
-
-or:
-
- class: CLASSNAME { perl code ... }
-
-Examples of the first form are:
-
- class: staff rich
- class: students ann,mary,pete
-
-User C<rich> will be placed into class C<staff>, and users C<ann>,
-C<mary> and C<pete> will be placed into class C<students>.
-
-Examples of the second form are:
-
- class: family { /jones$/ }
- class: friends { $_ ne "jeff" }
-
-Any username ending in C<jones> (eg. C<rjones>, C<timjones>) will be
-in class C<family>. Any other user except C<jeff> will be placed in
-class C<friends>. Note that the Perl code must be surrounded by
-C<{...}> and must return a boolean true or false value. The username
-is available as C<$_>. The Perl code is arbitrary: it might, for
-example, use an external file or database lookup in order to work out
-if a user belongs to a class.
-
-C<class> directives are evaluated in the order in which they appear in
-the configuration file until one matches the username.
-
-Default: Anonymous users are assigned to class C<anonymous> and
-everyone else is assigned to class C<users>.
-
 =item timeout
 
 Timeout on control connection. If a command has not been
@@ -345,20 +255,15 @@ process and are important in avoiding denial of service (DoS)
 attacks against the FTP server.
 
  Resource         Default   Unit
- limit memory       16384   KBytes  Amount of memory per child
- limit nr processes    10   (none)  Number of processes
+ limit memory        8192   KBytes  Amount of memory per child
+ limit nr processes     5   (none)  Number of processes
  limit nr files        20   (none)  Number of open files
 
-To instruct the server I<not> to limit a particular resource, set the
-limit to C<-1>.
+Example: 
 
-Example:
-
- limit memory:       32768
- limit nr processes:    20
+ limit memory:       16384
+ limit nr processes:    10
  limit nr files:        40
-
- limit nr processes:    -1
 
 =item max clients
 
@@ -672,68 +577,6 @@ Default: ftp
 
 Example: C<pam application name: ftpd>
 
-=item password file
-
-Only in the C<Full> personality, this allows you to specify a password
-file which is used for authentication. If you enable this option, then
-normal PAM or C</etc/passwd> is bypassed and this password file is
-used instead.
-
-Each line in the password file has the following format:
-
- username:crypted_password:unix_user[:root_directory]
-
-Comments and blank lines are ignored.
-
-For example, a line with:
-
- guest:ab01FAX.bQRSU:rich:/home/rich/guest-uploads
-
-would allow someone to log in as C<guest> with password
-C<123456>. After logging in, the FTP server will assume the identity
-of the real Unix user C<rich>, and will chroot itself into the
-C</home/rich/guest-uploads> directory.
-
-(Note that because ordinary PAM/C<passwd> is bypassed, it would no
-longer be possible for a user to log in directly with the username
-C<rich>).
-
-Crypted passwords can be generated using the following command:
-
- perl -e 'print crypt ("123456", "ab"), "\n"'
-
-Replace C<123456> with the actual password, and replace C<ab> with two
-random letters from the set C<[a-zA-Z0-9./]>. (The two random letters
-are the so-called I<salt> and are used to make dictionary attacks
-against the password file more difficult - see L<crypt(3)>).
-
-The userE<39>s home directory comes from the real Unix password file
-(or nsswitch-configured source) for the real Unix user.  You cannot
-use password files to override this, and so if you are using the
-optional C<root_directory> parameter, it would make sense to add
-C<home directory: /> into your configuration file.
-
-Anonymous logins are B<not> affected by the C<password file>
-option. Use the C<allow anonymous> flag to control whether anonymous
-logins are permitted in the C<Full> back-end.
-
-Password files are not the height of security, but they are included
-because they can sometimes be useful. In particular if the password
-file can be read by untrusted users then it is likely that those same
-users can run the I<crack> program and eventually find out your
-passwords. Some small additional security is offered by having the
-password file readable only by root (mode 0600). In future we may
-offer MD5 or salted SHA-1 hashed passwords to make this harder.
-
-A curious artifact of the implementation allows you to list the same
-user with multiple different passwords. Any of the passwords is then
-valid for logins (and you could even have the user map to different
-real Unix users in different chrooted directories!)
-
-Default: (none)
-
-Example: C<password file: /etc/ftpd.passwd>
-
 =item passive port range
 
 What range of local ports will the FTP server listen on in passive
@@ -845,7 +688,6 @@ You can use the following variables from the Perl:
  $hostname      Resolved hostname of the client [1]
  $ip            IP address of the client
  $user          User name [2]
- $class         Class of user [2]
  $user_is_anonymous  True if the user is an anonymous user [2]
  $pathname      Full pathname of the file being affected [2]
  $filename      Filename of the file being affected [2,3]
@@ -916,12 +758,12 @@ Examples:
  (a) Do not allow anyone to retrieve ``/etc/*'' or any file anywhere
      called ``.htaccess'':
 
-     retrieve rule: $dirname !~ m(^/etc/) && $filename ne ".htaccess"
+     retrieve rule: $dirname !~ m|^/etc/| && $filename ne ".htaccess"
 
  (b) Only allow anonymous users to retrieve files from under the
      ``/pub'' directory.
 
-     retrieve rule: !$user_is_anonymous || $dirname =~ m(^/pub/)
+     retrieve rule: !$user_is_anonymous || $dirname =~ m|^/pub/|
 
 Store rule. This rule controls who may store (upload) files.
 
@@ -936,12 +778,12 @@ Examples:
  (a) Only allow users to upload files to the ``/incoming''
      directory.
 
-     store rule: $dirname =~ m(^/incoming/)
+     store rule: $dirname =~ m|^/incoming/|
 
  (b) Anonymous users can only upload files to ``/incoming''
      directory.
 
-     store rule: !$user_is_anonymous || $dirname =~ m(^/incoming/)
+     store rule: !$user_is_anonymous || $dirname =~ m|^/incoming/|
 
  (c) Disable file upload.
 
@@ -962,7 +804,7 @@ directory.
 
 Default: 1
 
-Example: C<list rule: $dirname =~ m(^/pub/)>
+Example: C<list rule: $dirname =~ m|^/pub/|>
 
 Mkdir rule. This rule controls who may create a subdirectory.
 
@@ -978,7 +820,7 @@ Rename rule. This rule controls which files or directories can be renamed.
 
 Default: 1
 
-Example: C<rename rule: $pathname !~ m(/.htaccess$)>
+Example: C<rename rule: $pathname !~ m|/.htaccess$|>
 
 =item chdir message file
 
@@ -1088,62 +930,6 @@ memory, processes and files limits above.
 Default: 0
 
 Example: C<allow site exec command: 1>
-
-=item enable archive mode
-
-Archive mode. If set (the default), then archive mode is
-enabled, allowing users to request, say, C<file.gz> and
-get a version of C<file> which is gzip-compressed on the
-fly. If zero, then this feature is disabled. See the
-section ARCHIVE MODE elsewhere in this manual for details.
-
-Since archive mode is implemented using external commands,
-you need to ensure that programs such as C<gzip>,
-C<compress>, C<bzip2>, C<uuencode>, etc. are available on
-the C<$PATH> (even in the chrooted environment), and you also
-need to substantially increase the normal per-process memory,
-processes and files limits.
-
-Default: 1
-
-Example: C<enable archive mode: 0>
-
-=item archive zip temporaries
-
-Temporary directory for generating ZIP files in archive mode.
-In archive mode, when generating ZIP files, the FTP server is
-capable of either creating a temporary file on local disk
-containing the ZIP contents, or can generate the file completely
-in memory. The former method saves memory. The latter method
-(only practical on small ZIP files) allows the server to work
-more securely and in certain read-only chrooted environments.
-
-(Unfortunately the ZIP file format itself prevents ZIP files
-from being easily created on the fly).
-
-If not specified in the configuration file, this option
-defaults to using C</tmp>. If there are local users on the
-FTP server box, then this can lead to various C<tmp> races,
-so for maximum security you will probably want to change
-this.
-
-If specified, and set to a string, then the string is the
-name of a directory which is used for storing temporary zip
-files. This directory must be writable, and must exist inside
-the chrooted environment (if chroot is being used).
-
-If specified, but set to "0" or an empty string, then
-the server will always generate the ZIP file in memory.
-
-In any case, if the directory is found at runtime to be
-unwritable, then the server falls back to creating ZIP
-files in memory.
-
-Default: C</tmp>
-
-Example: C<archive zip temporaries: >
-
-Example: C<archive zip temporaries: /var/ziptmp>
 
 =item site command
 
@@ -1343,47 +1129,6 @@ Default: (no filter)
 
 Example: C<command filter: ^[A-Za-z0-9 /]+$>
 
-=item restrict command
-
-Advanced command filtering. The C<restrict command> directive takes
-the form:
-
- restrict command: "COMMAND" perl code ...
-
-If the user tries to execute C<COMMAND>, then the C<perl code> is
-evaluated first. If it evaluates to true, then the command is allowed
-to proceed. Otherwise the server reports an error back to the user and
-does not execute the command.
-
-Note that the C<COMMAND> is the FTP protocol command, which is not
-necessarily the same as the command which users will type in on their
-FTP clients. Please read RFC 959 to see some of the more common FTP
-protocol commands.
-
-The Perl code has the same variables available to it as for access
-control rules (eg. C<$user>, C<$class>, C<$ip>, etc.). The code
-I<must not> alter the global C<$_> variable (which contains the
-complete command).
-
-Default: all commands are allowed by default
-
-Examples:
-
-Only allow users in the class C<nukers> to delete files and
-directories:
-
- restrict command: "DELE" $class eq "nukers"
- restrict command: "RMD" $class eq "nukers"
-
-Only allow staff to use the C<SITE WHO> command:
-
- restrict command: "SITE WHO" $class eq "staff"
-
-Only allow C<rich> to run the C<SITE EXEC> command:
-
- allow site exec command: 1
- restrict command: "SITE EXEC" $user eq "rich"
-
 =item command wait
 
 Go slow. If set, then the server will sleep for this many seconds
@@ -1488,13 +1233,6 @@ Here is a good idea that Rob Brown had:
 
 Notice how this allows you to crunch a possibly very large
 configuration file into a hash, for very rapid loading at run time.
-
-Another useful way to use E<lt>PerlE<gt> is to set environment
-variables (particularly C<$PATH>).
-
- <Perl>
- $ENV{PATH} = "/usr/local/bin:$ENV{PATH}"
- </Perl>
 
 HereE<39>s yet another wonderful way to use E<lt>PerlE<gt>.
 Look in C</usr/local/lib/ftp/> for a list of site commands
@@ -1706,7 +1444,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.186 2002/06/20 20:34:58 rich Exp $
+  200-$Id: FTPServer.pm,v 1.152.2.6 2002/07/05 14:46:24 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1984,83 +1722,6 @@ client has to issue commands (ie. the C<HOST> command
 at least) before the site name is known to the server.
 However you may still have a global "access control rule".
 
-=head2 ARCHIVE MODE
-
-Beginning with version 1.100, C<Net::FTPServer> is able
-to generate certain types of compressed and archived files
-on the fly. In practice what this means is that if a user
-requests, say, C<file.gz> and this file does not actually
-exist (but C<file> I<does> exist), then the server will
-dynamically generate a gzip-compressed version of C<file>
-for the user. This also works on directories, so that a
-user might request C<dir.tar.gz> which does not exist
-(but directory C<dir> I<does> exist), and the server tars
-up and compresses the entire contents of C<dir> and
-presents that back to the user.
-
-Archive mode is enabled by default. However, it will
-not work unless you substantially increase the per-process
-memory, processes and files limits. The reason for this
-is that archive mode works by forking external programs
-such as C<gzip> to perform the compression. For the same
-reason you may also need to ensure that at least
-C<gzip>, C<compress>, C<bzip2> and C<uuencode> programs
-are available on the current C<$PATH>, particularly if
-you are using a chrooted environment.
-
-To disable archive mode put C<enable archive mode: 0>
-into the configuration file.
-
-The following file extensions are supported:
-
- .gz      GZip compressed.      Requires gzip program on PATH.
- .Z       Unix compressed.      Requires compress program on PATH.
- .bz2     BZip2 compressed.     Requires bzip2 program on PATH.
- .uue     UU-encoded.           Requires uuencode program on PATH.
- .tar     Tar archive.          Requires Perl Archive::Tar module.
- .zip     DOS ZIP archive.      Requires Perl Archive::Zip module.
- .list    Return a list of all the files in this directory.
-
-File extensions may be combined. Hence C<.tar.gz>,
-C<.tar.bz2> and even C<.tar.gz.uue> will all work
-as you expect.
-
-Archive mode is, of course, extensible. It is particularly
-simple to add another compression / filter format. In
-your personality (or in a E<lt>PerlE<gt> section in the configuration
-file) you need to add another key to the C<archive_filters>
-hash.
-
-  $ftps->{archive_filters}{".foo"} = &_foo_filter;
-
-The value of this key should be a function as defined below:
-
-  \%filter = _foo_filter ($ftps, $sock);
-
-The filter should return a hash reference (undef if it fails).
-The hash should contain the following keys:
-
-  sock      Newly opened socket.
-  pid       PID of filter program.
-
-The C<_foo_filter> function takes the existing socket and
-filters it, providing a new socket which the FTP server will
-write to (for the data connection back to the client). If
-your filter is a Unix program, then the simplest thing is
-just to define C<_foo_filter> as:
-
-  sub _foo_filter
-  {
-    return $_[0]->archive_filter_external ($_[1], "foo" [, args ...]);
-  }
-
-The C<archive_filter_external> function takes care of the
-tricky bits for you.
-
-Adding new I<generators> (akin to the existing tar and ZIP)
-is more tricky. I suggest you look closely at the code and
-consult the author for more information.
-
 =head1 METHODS
 
 =over 4
@@ -2073,7 +1734,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.110';
+$VERSION = '1.035';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -2090,9 +1751,6 @@ use Socket;
 use IO::Socket;
 use IO::File;
 use IO::Select;
-use IO::Scalar;
-use IO::Seekable;
-use IPC::Open2;
 use Carp;
 use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
 use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
@@ -2113,10 +1771,7 @@ BEGIN {
 # to eval the require/use statements. Before using the features
 # of an optional module, make sure it exists first by checking
 # ``exists $INC{"Module/Name.pm"}'' (see below for examples).
-#eval "use Archive::Tar;";
-eval "use Archive::Zip;";
 eval "use BSD::Resource;";
-eval "use Digest::MD5;";
 eval "use File::Sync;";
 
 # Load the signal handling code.
@@ -2162,7 +1817,7 @@ use vars qw(@_default_commands
      "ALIAS", "CDPATH", "CHECKMETHOD", "CHECKSUM",
      "IDLE",
      # Net::FTPServer compatible extensions.
-     "SYNC", "ARCHIVE",
+     "SYNC",
     );
 
 @_supported_mlst_facts
@@ -2440,7 +2095,12 @@ sub run
 	# If MSG_OOB data arrives on STDIN send it inline and trigger SIGURG
 	setsockopt (STDIN, SOL_SOCKET, SO_OOBINLINE, pack ("l",1))
 	  or warn "setsockopt: SO_OOBINLINE: $!";
-	STDIN->fcntl (F_SETOWN, $$);
+
+	# Note by RWMJ: The following code always generates an error, so
+	# I have commented it out for the present.
+	#my $pid = pack ("l", $$);
+	#fcntl (STDIN, F_SETOWN, $pid)
+	#  or warn "fcntl: F_SETOWN $$: $!";
       }
 
     # Virtual hosts.
@@ -2518,8 +2178,8 @@ sub run
 	if ($self->config ("require resolved addresses") && !$peerhostname)
 	  {
 	    $self->log ("err",
-			"cannot resolve address for connection from " .
-			"$peeraddrstring:$peerport");
+			   "cannot resolve address for connection from " .
+			   "$peeraddrstring:$peerport");
 	    exit 0;
 	  }
       }
@@ -2564,40 +2224,6 @@ sub run
       "root\@$self->{hostname}";
     $self->{_chdir_message_cache} = {};
 
-    # Support for archive mode.
-    $self->{archive_mode} =
-      !defined $self->config ("enable archive mode") ||
-      $self->config ("enable archive mode");
-    $self->{archive_filters} = {} unless exists $self->{archive_filters};
-    $self->{archive_generators} = {} unless exists $self->{archive_generators};
-    if ($self->{archive_mode})
-      {
-	# NB. Extension matching is case insensitive.
-	$self->{archive_filters}{".z"} = \&_archive_filter_Z
-	  if $self->_find_prog ("compress");
-	$self->{archive_filters}{".gz"} = \&_archive_filter_gz
-	  if $self->_find_prog ("gzip");
-	$self->{archive_filters}{".bz2"} = \&_archive_filter_bz2
-	  if $self->_find_prog ("bzip2");
-	$self->{archive_filters}{".uue"} = \&_archive_filter_uue
-	  if $self->_find_prog ("uuencode");
-
-	$self->{archive_generators}{".zip"} = \&_archive_generator_zip
-	  if exists $INC{"Archive/Zip.pm"};
-#	$self->{archive_generators}{".tar"} = \&_archive_generator_tar
-#	  if exists $INC{"Archive/Tar.pm"};
-	$self->{archive_generators}{".list"} = \&_archive_generator_list;
-
-	if ($self->{debug})
-	  {
-	    $self->log ("info",
-			"archive mode enabled [%s]",
-			join (", ",
-			      keys %{$self->{archive_filters}},
-			      keys %{$self->{archive_generators}}));
-	  }
-      }
-
     my $r = $self->access_control_hook;
     exit if $r == -1;
 
@@ -2618,14 +2244,14 @@ sub run
     # Perform normal per-process limits.
     if ($r == 0)
       {
-	my $limit = 1024 * ($self->config ("limit memory") || 16384);
-	$self->_set_rlimit ("RLIMIT_DATA", $limit) if $limit >= 0;
+	my $limit = 1024 * ($self->config ("limit memory") || 8192);
+	$self->_set_rlimit ("RLIMIT_DATA", $limit);
 
-	$limit = $self->config ("limit nr processes") || 10;
-	$self->_set_rlimit ("RLIMIT_NPROC", $limit) if $limit >= 0;
+	$limit = $self->config ("limit nr processes") || 5;
+	$self->_set_rlimit ("RLIMIT_NPROC", $limit);
 
 	$limit = $self->config ("limit nr files") || 20;
-	$self->_set_rlimit ("RLIMIT_NOFILE", $limit) if $limit >= 0;
+	$self->_set_rlimit ("RLIMIT_NOFILE", $limit);
       }
 
     unless ($self->{_test_mode})
@@ -2759,27 +2385,6 @@ sub run
     # Get command filter, if set.
     my $cmd_filter = $self->config ("command filter");
 
-    # Get restrict commands, if set, and parse them into a simpler format.
-    my @restrict_commands = $self->config ("restrict command");
-
-    foreach (@restrict_commands)
-      {
-	unless (/^"([a-zA-Z\s]+)"\s+(.*)/)
-	  {
-	    die "bad restrict command directive: restrict command: $_";
-	  }
-
-	my $pattern = uc $1;
-	my $code = $2;
-
-	# The pattern is something like "SITE WHO". Turn this into
-	# a real regular expression "^SITE\s+WHO\b".
-	$pattern =~ s/\s+/\\s+/g;
-	$pattern = "^$pattern\\b";
-
-	$_ = { pattern => $pattern, code => $code };
-      }
-
     # Command the commands permitted when not authenticated.
     my %no_authentication_commands = ();
 
@@ -2797,7 +2402,6 @@ sub run
       }
 
     # Start reading commands from the client.
-  COMMAND:
     for (;;)
       {
 	# Pre-command hook.
@@ -2851,43 +2455,12 @@ sub run
 	next if $r == -1;
 
 	# Command filter.
-	if ($r == 0)
+	if ($r == 0 && defined $cmd_filter)
 	  {
-	    if (defined $cmd_filter)
+	    unless ($_ =~ m/$cmd_filter/)
 	      {
-		unless ($_ =~ m/$cmd_filter/)
-		  {
-		    $self->reply (500,
-				  "Command does not match command filter.");
-		    next;
-		  }
-	      }
-
-	    foreach my $rc (@restrict_commands)
-	      {
-		if ($_ =~ /$rc->{pattern}/i)
-		  {
-		    # Set up the variables.
-		    my $hostname = $self->{peerhostname};
-		    my $ip = $self->{peeraddrstring};
-		    my $user = $self->{user};
-		    my $class = $self->{class};
-		    my $user_is_anonymous = $self->{user_is_anonymous};
-		    my $type = $self->{type};
-		    my $form = $self->{form};
-		    my $mode = $self->{mode};
-		    my $stru = $self->{stru};
-
-		    my $rv = eval $rc->{code};
-		    die if $@;
-
-		    unless ($rv)
-		      {
-			$self->reply (500,
-				  "Command restricted by site administrator.");
-			next COMMAND;
-		      }
-		  }
+		$self->reply (421, "Command does not match command filter.");
+		exit 0;
 	      }
 	  }
 
@@ -2900,6 +2473,13 @@ sub run
 	    $self->_log_line ("[Badly formed command]", _escape($_));
 	    exit 0;
 	  }
+
+	# The following strange 'eval' is necessary to work around a
+	# very odd bug in Perl 5.6.0. The following assignment to
+	# $cmd will fail in some cases unless you use $1 in some sort
+	# of an expression beforehand.
+	# - RWMJ 2002-07-05.
+	eval '$1 eq $1';
 
 	my ($cmd, $rest) = (uc $1, $2);
 
@@ -2935,13 +2515,11 @@ sub run
 	&{$self->{command_table}{$cmd}} ($self, $cmd, $rest);
 
 	# Post-command hook.
-	$self->post_command_hook ($cmd, $rest);
+	$self->post_command_hook;
 
 	# Write out any xferlog that may have built up from the command
 	$self->xfer_flush if $self->{_xferlog};
       }
-
-    $self->quit_hook ();
 
     unless ($self->{_test_mode})
       {
@@ -3115,23 +2693,6 @@ sub _set_rlimit
 	  "FTP server may be open to denial of service (DoS) ",
 	  "attacks. The real error was: $@";
       }
-  }
-
-# Check for an external program (eg. "gzip"). This test is not
-# bulletproof: In particular, it requires $PATH to be set correctly
-# at the top of this file or in the config file.
-
-sub _find_prog
-  {
-    my $self = shift;
-    my $prog = shift;
-
-    my @paths = split /:/, $ENV{PATH};
-    foreach (@paths)
-      {
-	return 1 if -x "$_/$prog";
-      }
-    return 0;
   }
 
 # This subroutine loads the command line options and configuration file
@@ -3907,276 +3468,6 @@ sub ip_host_config
     return undef;
   }
 
-sub _archive_filter_Z
-  {
-    my $self = shift;
-    my $sock = shift;
-
-    return archive_filter_external ($self, $sock, "compress");
-  }
-
-sub _archive_filter_gz
-  {
-    my $self = shift;
-    my $sock = shift;
-
-    return archive_filter_external ($self, $sock, "gzip");
-  }
-
-sub _archive_filter_bz2
-  {
-    my $self = shift;
-    my $sock = shift;
-
-    return archive_filter_external ($self, $sock, "bzip2");
-  }
-
-sub _archive_filter_uue
-  {
-    my $self = shift;
-    my $sock = shift;
-
-    return archive_filter_external ($self, $sock, "uuencode", "file");
-  }
-
-=pod
-
-=item $filter = $ftps->archive_filter_external ($sock, $cmd [, $args]);
-
-Apply C<$cmd> as a filter to socket C<$sock>. Returns a hash reference
-which contains the following keys:
-
-  sock      Newly opened socket.
-  pid       PID of filter program.
-
-If it fails, returns C<undef>.
-
-See section ARCHIVE MODE elsewhere in this manual for more information.
-
-=cut
-
-sub archive_filter_external
-  {
-    my $self = shift;
-    my $sock = shift;
-
-    my ($new_sock, $pid);
-
-    # Perl is forcing me to go through unnecessary hoops here ...
-    open AFE_SOCK, ">&" . fileno ($sock) or die "dup: $!";
-    close $sock;
-
-    eval {
-      $pid = open2 (">&AFE_SOCK", $new_sock, @_);
-    };
-    if ($@)
-      {
-	if ($@ =~ /^open2:/)
-	  {
-	    warn (join (" ", @_), ": ", $@);
-	    return undef;
-	  }
-	die;
-      }
-
-    # According to the open2 documentation, it should close AFE_SOCK
-    # for me. Apparently not, so I'll close it myself.
-    close AFE_SOCK;
-
-    my %filter_object = (sock => $new_sock, pid => $pid);
-
-    return \%filter_object;
-  }
-
-sub _archive_generator_list
-  {
-    my $self = shift;
-    my $dirh = shift;
-
-    my @files = ();
-
-    # Recursively visit all files and directories contained in $dirh.
-    $self->visit
-      ($dirh,
-       { 'f' =>
-	 sub {
-	   push @files, $_->pathname;
-	 },
-	 'd' =>
-	 sub {
-	   my $pathname = $_->pathname;
-
-	   push @files, $pathname;
-
-	   # Only visit a directory if we are allowed to by the list rule.
-	   # Otherwise this could be used as a backdoor way to list
-	   # forbidden directories.
-	   return $self->_eval_rule ("list rule",
-				     undef, undef, $pathname);
-	 }
-       }
-      );
-
-    my $str = join ("\n", @files) . "\n";
-
-    return new IO::Scalar \$str;
-  }
-
-sub _archive_generator_zip
-  {
-    my $self = shift;
-    my $dirh = shift;
-
-    # Create the zip file.
-    my $zip = Archive::Zip->new ();
-
-    # Recursively visit all files and directories contained in $dirh.
-    $self->visit
-      ($dirh,
-       { 'f' =>
-	 sub {
-	   my $fileh = $_;
-
-	   if ($self->_eval_rule ("retrieve rule",
-				  $fileh->pathname,
-				  $fileh->filename,
-				  $fileh->dirname))
-	       {
-		 # Add file to archive. Archive::Zip has a nice
-		 # extensible "Member" concept. We create our own
-		 # member type (Net::FTPServer::ZipMember) which understands
-		 # our own file handles and serves them back to the
-		 # main Archive::Zip program on demand. This means
-		 # that at most only a small part of the file is
-		 # held in memory at any one time.
-		 my $memb
-		   = Net::FTPServer::ZipMember->_newFromFileHandle ($fileh);
-
-		 unless ($memb)
-		   {
-		     warn "zip: error reading ", $fileh->filename, ": ",
-		     $self->system_error_hook, " (ignored)";
-		     return;
-		   }
-
-		 $zip->addMember ($memb);
-		 $memb->desiredCompressionMethod
-		   (&{$ {Archive::Zip::}{COMPRESSION_DEFLATED}});
-		 $memb->desiredCompressionLevel (9);
-	       }
-	 },
-	 'd' =>
-	 sub {
-	   # Only visit a directory if we are allowed to by the list rule.
-	   # Otherwise this could be used as a backdoor way to list
-	   # forbidden directories.
-	   return $self->_eval_rule ("list rule", undef, undef, $_->pathname);
-	 }
-       }
-      );
-
-    # Is a temporary directory available? Is it writable? If so, dump
-    # the ZIP file there. Otherwise, write it to an IO::Scalar (ie. in
-    # memory).
-    my $tmpdir =
-      defined $self->config ("archive zip temporaries")
-      ? $self->config ("archive zip temporaries")
-      : "/tmp";
-
-    my $file;
-
-    if ($tmpdir)
-      {
-	my $tmpname = "$tmpdir/ftps.az.tmp.$$";
-	$file = new IO::File ($tmpname, "w+");
-
-	if ($file)
-	  {
-	    unlink $tmpname;
-	    $zip->writeToFileHandle ($file, 1) == &{$ {Archive::Zip::}{AZ_OK}}
-	      or die "failed to write to zip file: $!";
-	    $file->seek (0, 0);
-	  }
-      }
-
-    unless ($file)
-      {
-	$file = new IO::Scalar;
-	$zip->writeToFileHandle ($file, 1) == &{$ {Archive::Zip::}{AZ_OK}}
-	  or die "failed to write to zip file: $!";
-	$file->seek (0, 0);
-      }
-
-    return $file;
-  }
-
-=pod
-
-=item $ftps->visit ($dirh, \%functions);
-
-The C<visit> function recursively "visits" every file and directory
-contained in C<$dirh> (which must be a directory handle).
-
-C<\%functions> is a reference to a hash of file types to functions.
-For example:
-
-  'f' => \&visit_file,
-  'd' => \&visit_directory,
-  'l' => \&visit_symlink,
-  &c.
-
-When a file of the known type is encountered, the appropriate
-function is called with C<$_> set to the file handle. (All functions
-are optional: if C<visit> encounters a file with a type not listed
-in the C<%functions> hash, then that file is just ignored).
-
-The return value from functions is ignored, I<except> for the
-return value from the directory ('d') function. The directory
-function should return 1 to indicate that C<visit> should recurse
-into that directory. If the directory function returns 0, then
-C<visit> will skip that directory.
-
-C<visit> will call the directory function once for C<$dirh>.
-
-=cut
-
-sub visit
-  {
-    my $self = shift;
-    my $dirh = shift;
-    my $functions = shift;
-
-    my $recurse = 1;
-
-    if (exists $functions->{d})
-      {
-	local $_ = $dirh;
-	$recurse = &{$functions->{d}} ();
-      }
-
-    if ($recurse)
-      {
-	my $files = $dirh->list_status ();
-
-	my $file;
-	foreach $file (@$files)
-	  {
-	    my $mode = $file->[2][0];
-	    my $fileh = $file->[1];
-
-	    if ($mode eq 'd')
-	      {
-		$self->visit ($fileh, $functions);
-	      }
-	    elsif (exists $functions->{$mode})
-	      {
-		local $_ = $fileh;
-		&{$functions->{$mode}} ();
-	      }
-	  }
-      }
-  }
-
 sub _HOST_command
   {
     my $self = shift;
@@ -4379,10 +3670,6 @@ sub _PASS_command
     # Login was officially OK.
     $self->{authenticated} = 1;
 
-    # Compute user's class.
-    $self->{class} =
-      $self->_username_to_class ($rest, $self->{user_is_anonymous});
-
     # Compute home directory. We may need it when we display the
     # welcome message.
     unless ($self->{user_is_anonymous})
@@ -4472,12 +3759,9 @@ sub _PASS_command
 
     # Open /etc/protocols etc., in case we chroot. And yes, doing the
     # setprotoent _twice_ is necessary to work around a bug in Perl or
-    # glibc (thanks Abraham Ingersoll <abe@dajoba.com>). Jamie Hill
-    # <hill@cinergycom.com> says that the getprotobyname ("tcp") call
-    # is necessary for Solaris too.
+    # glibc (thanks Abraham Ingersoll <abe@dajoba.com>).
     setprotoent 1;
     setprotoent 1;
-    $_ = getprotobyname ("tcp");
     sethostent 1;
     setnetent 1;
     setservent 1;
@@ -4501,59 +3785,9 @@ sub _PASS_command
     else
       {
 	$self->log ("warning",
-		    "no home directory for user: $self->{user}");
+		       "no home directory for user: $self->{user}");
       }
 
-  }
-
-# Convert a username to a class by using the class directives
-# in the configuration file.
-
-sub _username_to_class
-  {
-    my $self = shift;
-    my $username = shift;
-    my $user_is_anonymous = shift;
-
-    my @classes = $self->config ("class");
-
-    local $_;
-
-    foreach my $class (@classes)
-      {
-	# class: CLASSNAME { perl code ... }
-	if ($class =~ /^(\w+)\s+\{(.*)\}\s*$/)
-	  {
-	    my $classname = $1;
-	    my $code = $2;
-
-	    $_ = $username;
-
-	    my $rv = eval $code;
-	    die if $@;
-
-	    return $classname if $rv;
-	  }
-	# class: CLASSNAME USERNAME[,USERNAME[,...]]
-	elsif ($class =~ /^(\w*)\s+(.*)/)
-	  {
-	    my $classname = $1;
-	    my @users = split /[,\s]+/, $2;
-
-	    foreach (@users)
-	      {
-		return $classname if $_ eq $username;
-	      }
-	  }
-	else
-	  {
-	    die "bad class directive: class: $_";
-	  }
-      }
-
-    # Default cases.
-    return "anonymous" if $user_is_anonymous;
-    return "users";
   }
 
 sub _percent_substitutions
@@ -4808,10 +4042,7 @@ sub _PORT_command
     # The arguments to PORT are a1,a2,a3,a4,p1,p2 where a1 is the
     # most significant part of the address (eg. 127,0,0,1) and
     # p1 is the most significant part of the port.
-    # NB: IE 6.0.2600.0000 sends a leading 0 in front of the
-    # first part of the IP address. This is the purpose of the
-    # "0?" in the following pattern.
-    unless ($rest =~ /^(0?[1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0)/)
+    unless ($rest =~ /^([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0)/)
       {
 	$self->reply (501, "Syntax error in PORT command.");
 	return;
@@ -5061,80 +4292,14 @@ sub _RETR_command
     my $cmd = shift;
     my $rest = shift;
 
-    # Find file by name.
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
-    my ($generator, @filters);
+    my $transfer_hook;
 
     unless ($fileh)
       {
-	# No simple file by that name exists. Perhaps the user is
-	# requesting an automatic archive download? You are not
-	# expected to understand the following code unless you've
-	# read doc/archives.txt.
-
-	# Check archive mode is enabled.
-	unless ($self->{archive_mode})
-	  {
-	    $self->reply (550, "File or directory not found.");
-	    return;
-	  }
-
-      ARCHIVE_CHECK:
-	for (;;)
-	  {
-	    # Matches filter extension?
-	    foreach (keys %{$self->{archive_filters}})
-	      {
-		if (lc (substr ($rest, -length ($_))) eq lc ($_))
-		  {
-		    substr ($rest, -length ($_), length ($_), "");
-		    push @filters, $self->{archive_filters}{$_};
-
-		    # Does remainder of $rest correspond to a file?
-		    ($dirh, $fileh, $filename) = $self->_get ($rest);
-
-		    if ($fileh)
-		      {
-			my ($mode) = $fileh->status;
-
-			if ($mode eq "f")
-			  {
-			    last ARCHIVE_CHECK;
-			  }
-		      }
-
-		    next ARCHIVE_CHECK;
-		  }
-	      }
-
-	    # Matches directory + generator extension?
-	    foreach (keys %{$self->{archive_generators}})
-	      {
-		if (lc (substr ($rest, -length ($_))) eq lc ($_))
-		  {
-		    my $tmp = substr ($rest, 0, -length ($_));
-		    my $tmp_gen = $self->{archive_generators}{$_};
-
-		    ($dirh, $fileh, $filename) = $self->_get ($tmp);
-
-		    if ($fileh)
-		      {
-			my ($mode) = $fileh->status;
-
-			if ($mode eq "d")
-			  {
-			    $rest = $tmp;
-			    $generator = $tmp_gen;
-			    last ARCHIVE_CHECK;
-			  }
-		      }
-		  }
-	      }
-
-	    $self->reply (550, "File or directory not found.");
-	    return;
-	  } # ARCHIVE_CHECK: for (;;)
-      } # unless ($fileh)
+	$self->reply (550, "File or directory not found.");
+	return;
+      }
 
     # Check access control.
     unless ($self->_eval_rule ("retrieve rule",
@@ -5144,21 +4309,16 @@ sub _RETR_command
 	return;
       }
 
-    # Check it's a simple file (unless we're using a generator to archive
-    # a directory, in which case it's OK).
-    unless ($generator)
+    # Check it's a simple file.
+    my ($mode) = $fileh->status;
+    unless ($mode eq "f")
       {
-	my ($mode) = $fileh->status;
-	unless ($mode eq "f")
-	  {
-	    $self->reply (550,
-			  "RETR command is only supported on plain files.");
-	    return;
-	  }
+	$self->reply (550, "RETR command is only supported on plain files.");
+	return;
       }
 
     # Try to open the file.
-    my $file = !$generator ? $fileh->open ("r") : &$generator ($self, $fileh);
+    my $file = $fileh->open ("r");
 
     unless ($file)
       {
@@ -5180,28 +4340,8 @@ sub _RETR_command
 	return;
       }
 
-    # If there are any filters to apply, do that now.
-    my @filter_objects;
-    foreach (@filters)
-      {
-	my $filter = &$_ ($self, $sock);
-
-	unless ($filter)
-	  {
-	    $self->reply (500, "Can't open filter program in archive mode.");
-	    close $sock;
-	    $self->_cleanup_filters (@filter_objects);
-	    return;
-	  }
-
-	unshift @filter_objects, $filter;
-	$sock = $filter->{sock};
-      }
-
     # Outgoing bandwidth
     $self->xfer_start ($fileh->pathname, "o") if $self->{_xferlog};
-
-    my $transfer_hook;
 
     # What mode are we sending this file in?
     unless ($self->{type} eq 'A') # Binary type.
@@ -5212,12 +4352,9 @@ sub _RETR_command
 	if ($self->{_restart})
 	  {
 	    # VFS seek method only required to support relative forward seeks
-	    #
-	    # In Perl = 5.00503, SEEK_CUR is exported by IO::Seekable,
-	    # in Perl >= 5.6, SEEK_CUR is exported by both IO::Seekable
-	    # and Fcntl. Hence we 'use IO::Seekable' at the top of the
-	    # file to get this symbol reliably in both cases.
-	    $file->sysseek ($self->{_restart}, SEEK_CUR);
+	    # 1 == SEEK_CUR, but Perl 5.00503 doesn't have this defined in
+	    # Fcntl.pm (thanks to Rasca Gmelch <rasca@triad.de>).
+	    $file->sysseek ($self->{_restart}, 1);
 	    $self->{_restart} = 0;
 	  }
 
@@ -5232,9 +4369,8 @@ sub _RETR_command
 	    if ($transfer_hook
 		= $self->transfer_hook ("r", $file, $sock, \$buffer))
 	      {
-		close $sock;
+		$sock->close;
 		$file->close;
-		$self->_cleanup_filters (@filter_objects);
 		$self->reply (426,
 			      "File retrieval error: $transfer_hook",
 			      "Data connection has been closed.");
@@ -5243,17 +4379,15 @@ sub _RETR_command
 
 	    for ($n = 0; $n < $r; )
 	      {
-#		$w = $sock->syswrite ($buffer, $r - $n, $n);
-		$w = syswrite $sock, $buffer, $r - $n, $n;
+		$w = $sock->syswrite ($buffer, $r - $n, $n);
 
 		unless (defined $w)
 		  {
 		    # There was an error.
 		    my $reason = $self->system_error_hook();
 
-		    close $sock;
+		    $sock->close;
 		    $file->close;
-		    $self->_cleanup_filters (@filter_objects);
 		    $self->reply (426,
 				  "File retrieval error: $reason",
 				  "Data connection has been closed.");
@@ -5268,9 +4402,6 @@ sub _RETR_command
 	    # Transfer aborted by client?
 	    if ($self->{_urgent})
 	      {
-		close $sock;
-		$file->close;
-		$self->_cleanup_filters (@filter_objects);
 		$self->reply (426, "Transfer aborted. Data connection closed.");
 		$self->{_urgent} = 0;
 		return;
@@ -5282,9 +4413,8 @@ sub _RETR_command
 	    # There was an error.
 	    my $reason = $self->system_error_hook();
 
-	    close $sock;
+	    $sock->close;
 	    $file->close;
-	    $self->_cleanup_filters (@filter_objects);
 	    $self->reply (426,
 			  "File retrieval error: $reason",
 			  "Data connection has been closed.");
@@ -5316,9 +4446,8 @@ sub _RETR_command
 
 	    if ($transfer_hook = $self->transfer_hook ("r", $file, $sock, \$_))
 	      {
-		close $sock;
+		$sock->close;
 		$file->close;
-		$self->_cleanup_filters (@filter_objects);
 		$self->reply (426,
 			      "File retrieval error: $transfer_hook",
 			      "Data connection has been closed.");
@@ -5331,9 +4460,6 @@ sub _RETR_command
 	    $sock->print ("$_\r\n");
 	    if ($self->{_urgent})
 	      {
-		close $sock;
-		$file->close;
-		$self->_cleanup_filters (@filter_objects);
 		$self->reply (426, "Transfer aborted. Data connection closed.");
 		$self->{_urgent} = 0;
 		return;
@@ -5341,31 +4467,15 @@ sub _RETR_command
 	  }
       }
 
-    unless (close ($sock) && $file->close)
+    unless ($sock->close && $file->close)
       {
 	my $reason = $self->system_error_hook();
 	$self->reply (550, "File retrieval error: $reason");
 	return;
       }
 
-    # Clean up any outstanding filter objects.
-    $self->_cleanup_filters (@filter_objects);
-
     $self->xfer_complete if $self->{_xferlog};
     $self->reply (226, "File retrieval complete. Data connection has been closed.");
-  }
-
-sub _cleanup_filters
-  {
-    my $self = shift;
-
-    foreach (@_)
-      {
-	if (exists $_->{pid})
-	  {
-	    waitpid $_->{pid}, 0;
-	  }
-      }
   }
 
 sub _STOR_command
@@ -5976,12 +5086,6 @@ sub _SITE_CHECKSUM_command
     my $cmd = shift;
     my $rest = shift;
 
-    unless (exists $INC{"Digest/MD5.pm"})
-      {
-	$self->reply (500, "SITE CHECKSUM is not supported on this server.");
-	return;
-      }
-
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
 
     unless ($fileh)
@@ -6006,7 +5110,10 @@ sub _SITE_CHECKSUM_command
 	return;
       }
 
-    my $ctx = "Digest::MD5"->new;
+    # Don't "use" this file, because we want it to be optional.
+    require Digest::MD5;
+
+    my $ctx = Digest::MD5->new;
     $ctx->addfile ($file);	# IO::Handles are also filehandle globs.
 
     $self->reply (200, $ctx->hexdigest . " " . $filename);
@@ -6060,44 +5167,6 @@ sub _SITE_SYNC_command
     $self->reply (200, "Disks synchronized.");
   }
 
-sub _SITE_ARCHIVE_command
-  {
-    my $self = shift;
-    my $cmd = shift;
-    my $rest = shift;
-
-    if (defined $self->config ("enable archive mode") &&
-	!$self->config ("enable archive mode"))
-      {
-	$self->reply (500, "Archive mode is not enabled on this server.");
-	return;
-      }
-
-    if (!$rest)
-      {
-	$self->reply (200,
-		      "Archive mode is ".
-		      ($self->{archive_mode} ? "ON" : "OFF"). ".");
-	return;
-      }
-
-    if (uc ($rest) eq "ON")
-      {
-	$self->{archive_mode} = 1;
-	$self->reply (200, "Archive mode turned ON.");
-	return;
-      }
-
-    if (uc ($rest) eq "OFF")
-      {
-	$self->{archive_mode} = 0;
-	$self->reply (200, "Archive mode turned OFF.");
-	return;
-      }
-
-    $self->reply (500, "Usage: SITE ARCHIVE ON|OFF");
-  }
-
 sub _SYST_command
   {
     my $self = shift;
@@ -6131,7 +5200,7 @@ sub _SIZE_command
 	return;
       }
 
-    if ($self->{type} eq 'A')
+    if ($self->{type} eq 'A' && $fileh->can_read)
       {
 	# ASCII mode: we have to count the characters by hand.
 	if (my $file = $fileh->open ("r"))
@@ -6538,11 +5607,12 @@ sub _MLST_command
     # status on the current directory. Else we return
     # status on the file or directory name given.
     my $fileh = $self->{cwd};
-    my $dirh = $fileh->dir;
     my $filename = ".";
 
     if ($rest ne "")
       {
+	my $dirh;
+
 	($dirh, $fileh, $filename) = $self->_get ($rest);
 
 	unless ($fileh)
@@ -6565,7 +5635,7 @@ sub _MLST_command
       = $fileh->status;
 
     # Return the requested information over the control connection.
-    my $info = $self->_mlst_format ($filename, $fileh, $dirh);
+    my $info = $self->_mlst_format ($filename, $fileh);
 
     # Can't use $self->reply since it produces the wrong format.
     print "250-Listing of $filename:\r\n";
@@ -6617,7 +5687,7 @@ sub _MLSD_command
     if ($fileh)			# Single file in $dirh.
       {
 	# Do not bother logging xfer of the status of one file
-	$sock->print ($self->_mlst_format ($filename, $fileh, $dirh), "\r\n");
+	$sock->print ($self->_mlst_format ($filename, $fileh), "\r\n");
       }
     else			# Wildcard or full directory $dirh.
       {
@@ -6629,8 +5699,7 @@ sub _MLSD_command
 	    my $handle = $_->[1];
 	    my $statusref = $_->[2];
 	    my $line = $self->_mlst_format ($filename,
-					    $handle, $dirh, $statusref).
-					   "\r\n";
+					    $handle, $statusref). "\r\n";
 	    $self->xfer (length $line) if $self->{_xferlog};
 	    $sock->print ($line);
 	  }
@@ -6738,22 +5807,17 @@ sub _mlst_format
   {
     my $self = shift;
     my $filename = shift;
-    my $fileh = shift;
-    my $dirh = shift;
+    my $handle = shift;
     my $statusref = shift;
     local $_;
 
     # Get the status information.
     my @status;
     if ($statusref) { @status = @$statusref }
-    else            { @status = $fileh->status }
+    else            { @status = $handle->status }
 
     # Break out the fields of the status information.
     my ($mode, $perms, $nlink, $user, $group, $size, $mtime) = @status;
-
-    # Get the directory status information.
-    my ($dir_mode, $dir_perms) = ('d', $perms);
-    ($dir_mode, $dir_perms) = $dirh->status if $dirh;
 
     # Return the requested facts.
     my @facts = ();
@@ -6790,30 +5854,30 @@ sub _mlst_format
 	    if ($mode eq "f")
 	      {
 		push @facts,
-		"$_=" . ($perms & 0400     ? "r" : "") . # read
-			($perms & 0200     ? "w" : "") . # write
-			($perms & 0200     ? "a" : "") . # append
-			($dir_perms & 0200 ? "f" : "") . # rename
-			($dir_perms & 0200 ? "d" : "");	 # delete
+		"$_=" . ($handle->can_read ? "r" : "") .
+			($handle->can_write ? "w" : "") .
+			($handle->can_append ? "a" : "") .
+			($handle->can_rename ? "f" : "") .
+			($handle->can_delete ? "d" : "");
 	      }
 	    elsif ($mode eq "d")
 	      {
 		push @facts,
-		"$_=" . ($perms & 0200     ? "c" : "") . # write
-			($dir_perms & 0200 ? "d" : "") . # delete
-			($perms & 0100     ? "e" : "") . # enter
-			($perms & 0500     ? "l" : "") . # list
-			($dir_perms & 0200 ? "f" : "") . # rename
-			($perms & 0200     ? "m" : "");	 # mkdir
+		"$_=" . ($handle->can_write ? "c" : "") .
+			($handle->can_delete ? "d" : "") .
+			($handle->can_enter ? "e" : "") .
+			($handle->can_list ? "l" : "") .
+			($handle->can_rename ? "f" : "") .
+			($handle->can_mkdir ? "m" : "");
 	      }
 	    else
 	      {
 		# Pipes, block specials, etc.
 		push @facts,
-		"$_=" . ($perms & 0400     ? "r" : "") . # read
-			($perms & 0200     ? "w" : "") . # write
-			($dir_perms & 0200 ? "f" : "") . # rename
-			($dir_perms & 0200 ? "d" : "");  # delete
+		"$_=" . ($handle->can_read ? "r" : "") .
+			($handle->can_write ? "w" : "") .
+			($handle->can_rename ? "f" : "") .
+			($handle->can_delete ? "d" : "");
 	      }
 	  }
 	elsif ($_ eq "UNIX.MODE")
@@ -6942,7 +6006,6 @@ sub _eval_rule
     my $hostname = $self->{peerhostname};
     my $ip = $self->{peeraddrstring};
     my $user = $self->{user};
-    my $class = $self->{class};
     my $user_is_anonymous = $self->{user_is_anonymous};
     my $type = $self->{type};
     my $form = $self->{form};
@@ -7263,42 +6326,25 @@ sub _list_file
 
     my $fmt_time = strftime $fmt, localtime ($mtime);
 
-    # Generate printable permissions.
-    my $fmt_perms = join "",
-      ($perms & 0400 ? 'r' : '-'),
-      ($perms & 0200 ? 'w' : '-'),
-      ($perms & 0100 ? 'x' : '-'),
-      ($perms & 040 ? 'r' : '-'),
-      ($perms & 020 ? 'w' : '-'),
-      ($perms & 010 ? 'x' : '-'),
-      ($perms & 04 ? 'r' : '-'),
-      ($perms & 02 ? 'w' : '-'),
-      ($perms & 01 ? 'x' : '-');
-
-    # Printable file type.
-    my $fmt_mode = $mode eq 'f' ? '-' : $mode;
-
-    # If it's a symbolic link, display the link.
-    my $link;
-    if ($mode eq 'l')
-      {
-	$link = $fileh->readlink;
-	die "readlink: $!" unless defined $link;
-      }
-    my $fmt_link = defined $link ? " -> $link" : "";
-
     # Display the file.
     my $line = sprintf
-      ("%s%s%4d %-8s %-8s %8d %s %s%s\r\n",
-       $fmt_mode,
-       $fmt_perms,
+      ("%s%s%s%s%s%s%s%s%s%s%4d %-8s %-8s %8d %s %s\r\n",
+       ($mode eq 'f' ? '-' : $mode),
+       ($perms & 0400 ? 'r' : '-'),
+       ($perms & 0200 ? 'w' : '-'),
+       ($perms & 0100 ? 'x' : '-'),
+       ($perms & 040 ? 'r' : '-'),
+       ($perms & 020 ? 'w' : '-'),
+       ($perms & 010 ? 'x' : '-'),
+       ($perms & 04 ? 'r' : '-'),
+       ($perms & 02 ? 'w' : '-'),
+       ($perms & 01 ? 'x' : '-'),
        $nlink,
        $user,
        $group,
        $size,
        $fmt_time,
-       $filename,
-       $fmt_link);
+       $filename);
     $self->xfer (length $line) if $self->{_xferlog};
     $sock->print ($line);
   }
@@ -7652,8 +6698,8 @@ sub process_limits_hook
 =item $rv = $self->authentication_hook ($user, $pass, $user_is_anon)
 
 Hook: Called to perform authentication. If the authentication
-succeeds, this should return 0 (or any positive integer E<gt>= 0).
-If the authentication fails, this should return -1.
+succeeds, this should return 0. If the authentication fails,
+this should return -1.
 
 Status: required.
 
@@ -7773,11 +6819,10 @@ sub transfer_hook
 
 =pod
 
-=item $self->post_command_hook ($cmd, $rest)
+=item $self->post_command_hook
 
 Hook: This hook is called after all command processing has been
-carried out on this command. C<$cmd> is the command, and
-C<$rest> is the remainder of the command line.
+carried out on this command.
 
 Status: optional.
 
@@ -7805,155 +6850,11 @@ sub system_error_hook
     return "$!";
   }
 
-=pod
-
-=item $self->quit_hook
-
-Hook: This hook is called after the user has C<QUIT> or if the FTP
-client cleanly drops the connection. Please note, however, that this
-hook is I<not> called whenever the FTP server exits, particularly in
-cases such as:
-
- * The FTP server, the Perl interpreter or the personality
-   crashes unexpectedly.
- * The user fails to log in.
- * The FTP server detects a fatal error, sends a "421" error code,
-   and abruptly exits.
- * Idle timeouts.
- * Access control violations.
- * Manual server shutdowns.
-
-Unfortunately it is not in general easily possible to catch these
-cases and cleanly call a hook. If your personality needs to do cleanup
-in all cases, then it is probably better to use an C<END> block inside
-your Server object (see L<perlmod(3)>). Even using an C<END> block
-cannot catch cases where the Perl interpreter crashes.
-
-Status: optional.
-
-=cut
-
-sub quit_hook
-  {
-  }
-
-#----------------------------------------------------------------------
-
-# The Net::FTPServer::ZipMember class is used to implement the ZIP
-# file generator (in archive mode). This class is carefully and
-# cleverly designed so that it doesn't break if Archive::Zip is not
-# present. This class is mostly based on Archive::Zip::NewFileMember.
-
-package Net::FTPServer::ZipMember;
-
-use strict;
-
-use vars qw(@ISA);
-@ISA = qw(Archive::Zip::Member);
-
-use Net::FTPServer::FileHandle;
-
-# Verify this exists first by using ``exists $INC{"Archive/Zip.pm"}''.
-eval "use Archive::Zip";
-
-sub _newFromFileHandle
-  {
-    my $class = shift;
-    my $fileh = shift;
-
-    return undef unless exists $INC{"Archive/Zip.pm"};
-
-    my $self = $class->new (@_);
-
-    $self->{fileh} = $fileh;
-
-    my $filename = $fileh->filename;
-    $self->fileName ($filename);
-    $self->{externalFileName} = $filename;
-
-    $self->{compressionMethod} = &{$ {Archive::Zip::}{COMPRESSION_STORED}};
-
-    my ($mode, $perms, $nlink, $user, $group, $size, $time) = $fileh->status;
-    $self->{compressedSize} = $self->{uncompressedSize} = $size;
-    $self->desiredCompressionMethod
-      ($self->compressedSize > 0
-       ? &{$ {Archive::Zip::}{COMPRESSION_DEFLATED}}
-       : &{$ {Archive::Zip::}{COMPRESSION_STORED}});
-    $self->unixFileAttributes ($perms);
-    $self->setLastModFileDateTimeFromUnix ($time);
-    $self->isTextFile (0);
-
-    $self;
-  }
-
-sub externalFileName
-  {
-    shift->{externalFileName};
-  }
-
-sub fh
-  {
-    my $self = shift;
-
-    return $self->{fh} if $self->{fh};
-
-    $self->{fh} = $self->{fileh}->open ("r")
-      or return &{$ {Archive::Zip::}{AZ_IO_ERROR}};
-
-    $self->{fh};
-  }
-
-sub rewindData
-  {
-    my $self = shift;
-
-    my $status = $self->SUPER::rewindData (@_);
-    return $status if $status != &{$ {Archive::Zip::}{AZ_OK}};
-
-    return &{$ {Archive::Zip::}{AZ_IO_ERROR}} unless $self->fh;
-
-    # Not all personalities can seek backwards in the stream. Close
-    # the file and reopen it instead.
-    $self->endRead == &{$ {Archive::Zip::}{AZ_OK}}
-      or return &{$ {Archive::Zip::}{AZ_IO_ERROR}};
-    $self->fh;
-
-    return &{$ {Archive::Zip::}{AZ_OK}};
-  }
-
-sub _readRawChunk
-  {
-    my $self = shift;
-    my $dataref = shift;
-    my $chunksize = shift;
-
-    return (0, &{$ {Archive::Zip::}{AZ_OK}}) unless $chunksize;
-
-    my $bytesread = $self->fh->sysread ($$dataref, $chunksize)
-      or return (0, &{$ {Archive::Zip::}{AZ_IO_ERROR}});
-
-    return ($bytesread, &{$ {Archive::Zip::}{AZ_OK}});
-  }
-
-sub endRead
-  {
-    my $self = shift;
-
-    if ($self->{fh})
-      {
-	$self->{fh}->close
-	  or return &{$ {Archive::Zip::}{AZ_IO_ERROR}};
-	delete $self->{fh};
-      }
-    return &{$ {Archive::Zip::}{AZ_OK}};
-  }
-
 1 # So that the require or use succeeds.
 
 __END__
 
 =back 4
-
 
 =head1 BUGS
 
@@ -7997,6 +6898,8 @@ active data connection.
 
 Support for IPv6 (see RFC 2428), EPRT, EPSV commands.
 
+Upload and download tar.gz/zip files automatically.
+
 See also "XXX" comments in the code for other problems, missing features
 and bugs.
 
@@ -8023,20 +6926,6 @@ London, SW6 3EG, UK.
 
 Copyright (C) 2000-2001 Richard Jones (rich@annexia.org) and
 other contributors.
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 =head1 SEE ALSO
 

@@ -1,3 +1,4 @@
+#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -18,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.5 2001/10/24 14:40:05 rich Exp $
+# $Id: Server.pm,v 1.3 2001/07/10 11:41:43 rich Exp $
 
 =pod
 
@@ -47,7 +48,7 @@ package Net::FTPServer::DBeg1::Server;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.5 $ ' =~ /\$Revision:\s+([^\s]+)/;
+$VERSION = "0.2.0";
 
 use DBI;
 

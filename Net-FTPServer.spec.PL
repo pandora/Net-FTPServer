@@ -1,6 +1,6 @@
 # Copyright (C) 1999 Bibliotech Ltd., 631-633 Fulham Rd., London SW6 5UQ.
 #
-# $Id: Net-FTPServer.spec.PL,v 1.13 2002/05/13 15:42:22 rich Exp $
+# $Id: Net-FTPServer.spec.PL,v 1.9 2001/08/23 11:35:28 rich Exp $
 
 use strict;
 
@@ -31,30 +31,28 @@ __DATA__
 %define perlversion %(perl -e 'use Config; print $Config{version}, "\\n"')
 
 Summary: Net::FTPServer - an extensible, secure FTP server
-Name: perl-Net-FTPServer
+Name: Net-FTPServer
 Version: @VERSION@
 Release: @RELEASE@
 Copyright: GPL
 Group: Applications/Internet
-Source: Net-FTPServer-%{version}.tar.gz
+Source: %{name}-%{version}.tar.gz
 BuildRoot: /var/tmp/%{name}-%{version}-root
-BuildRequires: perl-Authen-PAM >= 0.12
-BuildRequires: perl-BSD-Resource >= 1.08
-BuildRequires: perl-File-Sync >= 0.09
-BuildRequires: perl-IO-stringy >= 1.220
-BuildRequires: perl >= %{perlversion}
-Requires: perl-Authen-PAM >= 0.12
-Requires: perl-BSD-Resource >= 1.08
-Requires: perl-File-Sync >= 0.09
-Requires: perl-IO-stringy >= 1.220
+Requires: Authen-PAM >= 0.12
+Requires: BSD-Resource >= 1.08
+Requires: IO-stringy >= 1.220
+Requires: File-Sync >= 0.09
 Requires: perl >= %{perlversion}
-
+# The following packages are now provided by the core of perl.
+#Requires: Digest-MD5
+#Requires: Getopt-Long
+#Requires: IO >= 1.20
 
 %description
 
 
 %prep
-%setup -q -n Net-FTPServer-%{version}
+%setup -q
 
 
 %build
@@ -65,35 +63,16 @@ make test
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make NOCONF=1 PREFIX=$RPM_BUILD_ROOT/usr install
-
-mkdir $RPM_BUILD_ROOT/etc
-install -c -m 0644 ftpd.conf $RPM_BUILD_ROOT/etc
-
-mkdir -p $RPM_BUILD_ROOT/usr/share/doc/Net-FTPServer-%{version}
-cp AUTHORS COPYING FAQ INSTALL README TODO doc/* \
-  $RPM_BUILD_ROOT/usr/share/doc/Net-FTPServer-%{version}
-
+make PREFIX=$RPM_BUILD_ROOT/usr install
+find $RPM_BUILD_ROOT/usr -type f -print | perl -p -e "s@^$RPM_BUILD_ROOT(.*)@\$1*@g" | grep -v perllocal.pod > %{name}-filelist
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-
-%files
+%files -f %{name}-filelist
 %defattr(-,root,root)
-%{perlsitearch}/auto/Net/FTPServer/
-%{perlsitearch}/Net/FTPServer.pm
-%{perlsitearch}/Net/FTPServer/
-%{perlman3dir}/*.3*
-/usr/sbin/*.pl
-%config(noreplace) /etc/ftpd.conf
-%doc /usr/share/doc/Net-FTPServer-%{version}/
-
 
 %changelog
-* Fri Dec 28 2001 Richard Jones <rich@annexia.org>
-- Better handling of different Perl versions. RPM contains documentation,
-- config file and start-up scripts.
 * Tue Feb 15 2001 Rob Brown <rbrown@about-inc.com>
 - Generalized files - works with Perl 5.6 as well as with Perl 5.005
 * Tue Feb 08 2001 Richard Jones <rich@annexia.org>
