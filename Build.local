@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# $Id: Build.local,v 1.1 2001/02/08 14:38:21 rich Exp $
+
+make -k realclean
+
+set -o errexit
+
+export PERL5LIB=$HOME/.build/usr/lib/perl5/site_perl/5.005
+
+perl Makefile.PL PREFIX=$HOME/.build/usr
+
+make
+make test
+make install

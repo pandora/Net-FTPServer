@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Handle.pm,v 1.8 2000/09/25 13:50:57 rich Exp $
+# $Id: Handle.pm,v 1.1 2001/02/08 14:38:48 rich Exp $
 
 =pod
 

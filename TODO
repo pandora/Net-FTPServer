@@ -1,4 +1,4 @@
-$Id: TODO,v 1.2 2000/09/27 14:52:29 rich Exp $
+$Id: TODO,v 1.1 2001/02/08 14:38:24 rich Exp $
 
 Benchmarking. Run http://www.kegel.com/dkftpbench/index.html against
 the server and optimize it according to the results. I don't expect
@@ -24,7 +24,7 @@ Current problems with this FTP server, as identified by http://cr.yp.to/ftp/:
    \000 with \012 in his description].
  * Implement EPLF [http://cr.yp.to/ftp/list/eplf.html].
  * In HELP print server version, if appropriate
-   [http://cr.yp.to/ftp/syst.html].
+   [http://cr.yp.to/ftp/syst.html]. [DONE]
  * Implement correct quoting in PWD command response
    [http://cr.yp.to/ftp/cwd.html#pwd].
 

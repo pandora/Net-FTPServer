@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.9 2000/09/14 10:11:07 rich Exp $
+# $Id: Makefile.PL,v 1.2 2001/02/18 11:08:14 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -34,6 +34,8 @@ WriteMakefile(
 	       Getopt::Long => 0,
 	       IO::Dir => 0,
 	       #IO::File => 0,
+	       IO::Handle => 0,
+	       IO::Scalar => 0,
 	       IO::Socket => 0,
 	       POSIX => 0,
 	       Socket => 0,

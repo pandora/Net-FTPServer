@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.3 2000/11/02 18:01:31 rich Exp $
+# $Id: Server.pm,v 1.1 2001/02/08 14:38:49 rich Exp $
 
 =pod
 
@@ -48,7 +48,7 @@ package Net::FTPServer::DBeg1::Server;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = "0.1.0";
+$VERSION = "0.2.0";
 
 use DBI;
 
@@ -133,7 +133,8 @@ sub authentication_hook
 
 sub user_login_hook
   {
-    # Do nothing for now.
+    # Do nothing for now, but in future it would be a good
+    # idea to change uid or chroot to a safe place.
   }
 
 #  Return an instance of Net::FTPServer::DBeg1::DirHandle

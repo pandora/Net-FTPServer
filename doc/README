@@ -1,16 +1,11 @@
-This directory contains a random selection of RFCs and
-other documents relating to the FTP protocol.
+The important RFCs and Internet Drafts relating to FTP are:
 
-Many of these RFCs are obsolete.
-
-The important documents are:
-
-	rfc959.txt	The core standard.
-	rfc1123.txt	Various clarifications and requirements.
-	rfc2389.txt	Feature negotiation.
-	rfc2428.txt	FTP extensions for IPv6 and NATs.
-	rfc2577.txt	FTP security considerations.
-	rfc2640.txt	Internationalization of the protocol.
+	rfc959		The core standard.
+	rfc1123		Various clarifications and requirements.
+	rfc2389		Feature negotiation.
+	rfc2428		FTP extensions for IPv6 and NATs.
+	rfc2577		FTP security considerations.
+	rfc2640		Internationalization of the protocol.
 	draft-ietf-ftpext-mlst-11.txt	Proposed extensions.
 
 Other references of interest:

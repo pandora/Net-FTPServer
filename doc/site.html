@@ -18,6 +18,106 @@
 	      <td>
 		<h3>News</h3>
 
+		<p><b>Sun Feb 18 23:37:14 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.9.tar.gz">Version 0.9.9</a>
+		  released. This fixes a nasty bug with uploading
+		  ASCII files. Also added:
+		  A fairly complete test suite [Rich].
+		  A cute "in memory" personality [Rich]. Catch errors on
+		  ASCII STOR (upload) and report to the client [Rob Brown].
+		  Eliminate the idle transfer DoS bug [Rob Brown].
+		  Never reset the ALRM catcher to inifinity (alarm 0)
+		  [Rob Brown].
+		  Pull all clients that are idle even mid-transfer
+		  [Rob Brown].
+		  Avoid timing out clients that are actively transfering
+		  [Rob Brown]. Missing files added to the MANIFEST [Rich].
+		</p>
+
+		<p><b>Thu Feb 15 16:21:04 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.8.tar.gz">Version 0.9.8</a>
+		  released. In no particular order:
+		  Port numbers opened by the FTP server in passive mode
+		  can be configured in ranges from the configuration file
+		  (this should improve things if you run a firewall in
+		  front of your server).
+		  Removed extra spaces in "Entering Passive Mode" string.
+		  Code tidying.
+		  Add "print" method to IO::Blob - you can now upload
+		  ASCII files to the database.
+		  In STOR, error messages actually reflect error
+		  conditions.
+		  Fixed calls to syswrite().
+		  Incomplete three-way TCP handshake no longer crashes
+		  the server.
+		  Add -P option on the command line to supply name of
+		  pidfile.
+		  Delete pidfile when main process dies.
+		  (Thanks to Rob Brown at about-inc.com for the bulk
+		  of these fixes).
+		</p>
+
+		<p><b>Sat Feb  3 23:25:46 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.6.tar.gz">Version 0.9.6</a>
+		  released. Fixed a bug with LISTing files in
+		  subdirectories (thanks to all @about-inc.com).
+		</p>
+
+		<p><b>Fri Dec 22 13:04:42 GMT 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.5.tar.gz">Version 0.9.5</a>
+		  released. I fixed a raft of portability problems
+		  on Solaris 2.7. However, there remains a problem
+		  that the Perl version I have on Solaris doesn't
+		  call <code>initgroups(3)</code> correctly when
+		  the process GID is changed, and
+		  hence doesn't drop privileges properly. This is
+		  beyond my experience to fix -- seemingly requiring
+		  deep changes to Perl itself? It also works OK on
+		  Linux and *BSD, and that's all that really concerns
+		  me anyway.
+		</p>
+
+		<p><b>Sat Dec  9 17:56:34 GMT 2000</b></p>
+
+		<p>
+		  I presented a short speech about Net::FTPServer
+		  to the Greater London Linux User Group. You
+		  can read it
+		  <a href="speech/title.html">here</a>.
+		</p>
+
+		<p><b>Fri Dec  8 23:50:14 GMT 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.4.tar.gz">Version 0.9.4</a>
+		  released. Fixed a few problems with older versions
+		  of PostgreSQL (versions &lt;= 6.3).
+		</p>
+
+		<p><b>Sat Nov 25 13:39:52 GMT 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.3.tar.gz">Version 0.9.3</a>
+		  released. Fixed compatibility problems with ncftp
+		  versions 2.4.3 and 3.0.2. Mostly fixed MLST/MLSD
+		  commands. Added --help option. Fixed -V option.
+		</p>
+
+		<p><b>Fri Nov  3 18:14:05 GMT 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.9.2.tar.gz">Version 0.9.2</a>
+		  released. Bug fixes and clean ups.
+		</p>
+
 		<p><b>Fri Nov  3 13:38:14 GMT 2000</b></p>
 
 		<p>
@@ -166,12 +266,7 @@
 
 		<p>
 		  Latest stable version:
-		  <a href="files/Net-FTPServer-0.7.2.tar.gz">0.7.2</a>
-		</p>
-
-		<p>
-		  Latest development version:
-		  <a href="files/Net-FTPServer-0.9.1.tar.gz">0.9.1</a>
+		  <a href="files/Net-FTPServer-0.9.9.tar.gz">0.9.9</a>
 		</p>
 
 		<p align="right">
@@ -195,6 +290,8 @@
 		  <li> Authen::PAM
 		  <li> BSD::Resource
 		  <li> Digest::MD5
+		  <li> IO (probably bundled with your Perl)
+		  <li> IO::Scalar (part of the IO-stringy package)
 		  <li> perl (we have tested this on 5.00503 only;
 		    read the FAQ first if you have 5.6.0)
 		  <li> Some sort of Unix variant (we have tested
@@ -278,7 +375,7 @@
     <address><a href="mailto:rich@annexia.org">rich@annexia.org</a></address>
 <!-- Created: Fri Sep  8 10:43:32 BST 2000 -->
 <!-- hhmts start -->
-Last modified: Thu Nov  2 18:51:59 GMT 2000
+Last modified: Sun Feb 18 23:45:38 GMT 2001
 <!-- hhmts end -->
   </body>
 </html>

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: IOBlob.pm,v 1.1 2000/11/02 17:56:23 rich Exp $
+# $Id: IOBlob.pm,v 1.4 2001/02/19 20:21:40 rbrown Exp $
 
 =pod
 
@@ -93,6 +93,23 @@ sub new
     return $self;
   }
 
+=item $io->getc ();
+
+Read 1 byte from the buffer and return it
+
+=cut
+
+sub getc
+  {
+    my $self = shift;
+    my $buffer;
+    if (defined $self->read ($buffer, 1)) {
+      return $buffer;
+    } else {
+      return undef;
+    }
+  }
+
 =item $io->read ($buffer, $nbytes, [$offset]);
 
 =item $io->sysread ($buffer, $nbytes, [$offset]);
@@ -148,6 +165,18 @@ sub syswrite
     my $buffer = substr $_[0], $offset, $nbytes;
 
     $self->{dbh}->func ($self->{blob_fd}, $buffer, length $buffer, 'lo_write');
+  }
+
+=item $io->print ($buffer);
+
+=cut
+
+sub print
+  {
+    my $self = shift;
+    my $buffer = join "", @_;
+
+    $self->write ($buffer, length $buffer);
   }
 
 =item $io->close;

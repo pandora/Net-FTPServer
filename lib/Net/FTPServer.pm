@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.59 2000/11/03 13:37:21 rich Exp $
+# $Id: FTPServer.pm,v 1.33 2001/02/22 15:46:12 rich Exp $
 
 =pod
 
@@ -29,7 +29,7 @@ Net::FTPServer - A secure, extensible and configurable Perl FTP server
 
 =head1 SYNOPSIS
 
-  ftpd [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file]
+  ftpd [--help] [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file] [-P pidfile]
 
 =head1 DESCRIPTION
 
@@ -108,6 +108,18 @@ C</etc/ftpd.conf>.)
 After editing this file you will need to inform C<inetd>:
 
   killall -HUP inetd
+
+=head1 COMMAND LINE FLAGS
+
+  --help       Display help and exit
+  -d, -v       Enable debugging
+  -p PORT      Listen on port PORT instead of the default port
+  -s           Run in daemon mode (default: run from inetd)
+  -S           Run in background and in daemon mode
+  -V           Show version information and exit
+  -C CONF      Use CONF as configuration file (default: /etc/ftpd.conf)
+  -P PIDFILE   Save pid into PIDFILE (daemon mode only)
+  --test       Test mode (used only in automatic testing scripts)
 
 =head1 CONFIGURING AND EXTENDING THE SERVER
 
@@ -314,7 +326,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.59 2000/11/03 13:37:21 rich Exp $
+  200-$Id: FTPServer.pm,v 1.33 2001/02/22 15:46:12 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -604,9 +616,10 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '0.9.1';
-$RELEASE = 1;
+$VERSION = '1.0.0';
+$RELEASE = 3;
 
+use Config;
 use Getopt::Long qw(GetOptions);
 use Sys::Hostname;
 use Sys::Syslog qw(:DEFAULT setlogsock);
@@ -617,6 +630,7 @@ use BSD::Resource;
 use Carp;
 use Digest::MD5;
 use POSIX qw(setsid dup2 ceil strftime);
+use Fcntl qw(F_SETOWN);
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
@@ -775,6 +789,8 @@ sub run
     };
     $SIG{TERM} = sub {
       syslog "info", "exiting on TERM signal";
+      $self->reply (421, "Manual shutdown from server");
+      $self->_log_line ("[TERM RECEIVED]");
       exit;
     };
     $SIG{INT} = sub {
@@ -792,8 +808,31 @@ sub run
     $SIG{ALRM} = sub {
       syslog "info", "exiting on ALRM signal";
       print "421 Server closed the connection after idle timeout.\r\n";
+      $self->_log_line ("[TIMED OUT!]");
       exit;
     };
+    $SIG{URG} = sub {
+      $self->{_urgent} = 1;
+    };
+
+    # Setup Client Logging.
+    if (defined $self->config ("client logging"))
+      {
+	my $log_file = $self->config ("client logging");
+
+	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
+	$log_file =~ s/\$(\w+)/$self->{$1}/g;
+	my $io = new IO::File $log_file, "a";
+	if (defined $io)
+	  {
+	    $io->autoflush (1);
+	    $self->{client_log} = $io;
+	  }
+	else
+	  {
+	    die "cannot append: $log_file: $!";
+	  }
+      }
 
     # Load customized SITE commands.
     my @custom_site_commands = $self->config ("site command");
@@ -832,6 +871,14 @@ sub run
 	    $self->_fork_into_background;
 	  }
 
+	$self->_save_pid;
+
+	local $SIG{TERM} = sub {
+	  syslog "info", "shutting down daemon";
+	  $self->_log_line ("[DAEMON Shutdown]");
+	  exit;
+	};
+
 	# Run as a daemon.
 	$self->_be_daemon;
       }
@@ -843,9 +890,25 @@ sub run
 
     # Get the sockname of the socket so we know which interface
     # the client is bound to.
-    my $sockname = getsockname STDIN;
-    my ($sockport, $sockaddr) = unpack_sockaddr_in ($sockname);
-    my $sockaddrstring = inet_ntoa ($sockaddr);
+    my ($sockname, $sockport, $sockaddr, $sockaddrstring);
+
+    unless ($self->{_test_mode})
+      {
+	$sockname = getsockname STDIN;
+	if (!defined $sockname)
+	  {
+	    $self->reply(500, "inet mode requires a socket - use '$0 -S' for standalone.");
+	    exit;
+	  }
+	($sockport, $sockaddr) = unpack_sockaddr_in ($sockname);
+	$sockaddrstring = inet_ntoa ($sockaddr);
+
+	# Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+	# If MSG_OOB data arrives on STDIN send it inline and trigger SIGURG
+	setsockopt (STDIN, SOL_SOCKET, SO_OOBINLINE, pack ("l",1))
+	  or warn "setsockopt: SO_OOBINLINE: $!";
+	STDIN->fcntl (F_SETOWN, $$);
+      }
 
     # Virtual hosts.
     my $sitename;
@@ -885,13 +948,18 @@ sub run
       }
 
     # Get the peername and other details of this socket.
-    my $peername = getpeername STDIN;
+    my ($peername, $peerport, $peeraddr, $peeraddrstring);
 
-    my ($peerport, $peeraddr) = unpack_sockaddr_in ($peername);
-    my $peeraddrstring = inet_ntoa ($peeraddr);
-    my $peerhostname;
+    unless ($self->{_test_mode})
+      {
+	$peername = getpeername STDIN;
+	($peerport, $peeraddr) = unpack_sockaddr_in ($peername);
+	$peeraddrstring = inet_ntoa ($peeraddr);
+        $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport]");
+      }
 
     # Resolve the address.
+    my $peerhostname;
     if ($self->config ("resolve addresses"))
       {
 	my $hostname = gethostbyaddr ($peeraddr, AF_INET);
@@ -936,8 +1004,7 @@ sub run
     $self->{_hostaddrstring} = $peeraddrstring;
 
     # Default mode is active. Issuing the PASV command switches the
-    # server into passive mode. There doesn't appear to be a way to
-    # make the server return to active mode.
+    # server into passive mode.
     $self->{_passive} = 0;
 
     # Set up default connection state.
@@ -976,30 +1043,45 @@ sub run
     # Perform normal per-process limits.
     if ($r == 0)
       {
-	my $limit = 1024 * ($self->config ("limit memory") || 8192);
-	setrlimit (RLIMIT_DATA, $limit, $limit)
-	  or die "setrlimit: $!";
+	my $limits = get_rlimits ();
 
-	$limit = $self->config ("limit nr processes") || 5;
-	setrlimit (RLIMIT_NPROC, $limit, $limit)
-	  or die "setrlimit: $!";
+	#warn "limits = ", join (", ", keys %$limits);
 
-	$limit = $self->config ("limit nr files") || 20;
-	setrlimit (RLIMIT_NOFILE, $limit, $limit)
-	  or die "setrlimit: $!";
+	if (exists $limits->{RLIMIT_DATA}) {
+	  my $limit = 1024 * ($self->config ("limit memory") || 8192);
+	  setrlimit (RLIMIT_DATA, $limit, $limit)
+	    or die "setrlimit: $!";
+	}
+
+	if (exists $limits->{RLIMIT_NPROC}) {
+	  my $limit = $self->config ("limit nr processes") || 5;
+	  setrlimit (RLIMIT_NPROC, $limit, $limit)
+	    or die "setrlimit: $!";
+	}
+
+	if (exists $limits->{RLIMIT_NOFILE}) {
+	  my $limit = $self->config ("limit nr files") || 20;
+	  setrlimit (RLIMIT_NOFILE, $limit, $limit)
+	    or die "setrlimit: $!";
+	}
       }
 
-    # Log the connection information available.
-    if ($peerhostname)
+    unless ($self->{_test_mode})
       {
-	syslog "info",
-	"connection from " .
-	"$peerhostname:$peerport ($peeraddrstring:$peerport)";
-      }
-    else
-      {
-	syslog "info",
-	"connection from $peeraddrstring:$peerport";
+	# Log the connection information available.
+	my $peerinfodpy
+	  = $peerhostname ?
+	    "$peerhostname:$peerport ($peeraddrstring:$peerport)" :
+	    "$peeraddrstring:$peerport";
+
+	syslog "info", "connection from $peerinfodpy";
+
+	# Change name of process in process listing.
+	unless (defined $self->config ("change process name") &&
+		!$self->config ("change process name"))
+	  {
+	    $0 = "ftpd $peerinfodpy";
+	  }
       }
 
     # Send the greeting.
@@ -1031,6 +1113,22 @@ sub run
     # Get command filter, if set.
     my $cmd_filter = $self->config ("command filter");
 
+    # Command the commands permitted when not authenticated.
+    my %no_authentication_commands = ();
+
+    if (defined $self->config ("no authentication commands"))
+      {
+	my @c = split /\s+/, $self->config ("no authentication commands");
+
+	foreach (@c) { $no_authentication_commands{$_} = 1; }
+      }
+    else
+      {
+	%no_authentication_commands =
+	  ("USER" => 1, "PASS" => 1, "LANG" => 1, "FEAT" => 1,
+	   "HELP" => 1, "QUIT" => 1, "HOST" => 1);
+      }
+
     # Start reading commands from the client.
     for (;;)
       {
@@ -1045,9 +1143,15 @@ sub run
 	# We should translate <CR><NUL> to <CR> and treat ONLY <CR><LF>
 	# as a line ending character.
 	last unless defined ($_ = <STDIN>);
+        $self->_log_line ($_);
 
-	# Reset the alarm.
-	alarm 0;
+	# Restart alarm clock timer.
+	alarm $self->{_idle_timeout};
+
+	# When out-of-band data arrives (eg. when the client performs
+	# an ABOR command), the client will send several telnet control
+	# characters before the actual command. Drop those bytes now.
+	s/^\377.// while m/^\377./;
 
 	# Go slow?
 	sleep $self->config ("command wait")
@@ -1076,6 +1180,7 @@ sub run
 	  {
 	    syslog "err",
 	    "badly formed command received: %s", _escape($_);
+            $self->_log_line ("[Badly formed command]", _escape($_));
 	    exit 0;
 	  }
 
@@ -1085,12 +1190,9 @@ sub run
 	  _escape($cmd), _escape($rest)
 	  if $self->{debug};
 
-	# All commands except HOST, USER, PASS, LANG, FEAT, QUIT and HELP
-	# require user to be authenticated.
-	if (!$self->{authenticated} &&
-	    $cmd ne "USER" && $cmd ne "PASS" && $cmd ne "LANG" &&
-	    $cmd ne "LANG" && $cmd ne "HELP" && $cmd ne "QUIT" &&
-	    $cmd ne "HOST")
+	# Command requires user to be authenticated?
+	unless ($self->{authenticated} ||
+		exists $no_authentication_commands{$cmd})
 	  {
 	    $self->reply (530, "Not logged in.");
 	    next;
@@ -1111,7 +1213,49 @@ sub run
 	$self->post_command_hook;
       }
 
+    $self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
     syslog "info", "connection terminated normally";
+  }
+
+# Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+# Client command logging
+sub _log_line
+  {
+    my $self = shift;
+    return unless exists $self->{client_log};
+    my $message = join ("",@_);
+    my $io = $self->{client_log};
+    my $time = scalar localtime;
+    my $authenticated = $self->{authenticated} ? "*" : "-";
+    $message =~ s/\n*$/\n/;
+    $io->print ("[$time][$$:$authenticated]$message");
+  }
+
+# Added 08 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+# Safely saves the process id to the specified pidfile.
+# If no pidfile is specified, nothing happens.
+sub _save_pid
+  {
+    my $self = shift;
+    # Store pid into pidfile?
+    $self->{_pidfile} =
+      (defined $self->{_args_pidfile}
+       ? $self->{_args_pidfile}
+       : $self->config ("pidfile"));
+    if (defined $self->{_pidfile})
+      {
+        my $pidfile = $self->{_pidfile};
+        if ($pidfile =~ m%^([/\w\-\.]+)$%)
+          {
+            open (PID, ">$1")
+              or die "cannot write $pidfile: $!";
+            print PID "$$\n";
+            close PID;
+            eval "END {unlink('$1') if \$\$ == $$;}";
+          } else {
+            die "Refusing to create weird looking pidfile: $pidfile";
+          }
+      }
   }
 
 # This subroutine loads the command line options and configuration file
@@ -1124,20 +1268,32 @@ sub _get_configuration
     my $args = shift;
     local @ARGV = @$args;
 
-    my ($debug, $show_version);
+    my ($debug, $help, $show_version);
+
+    Getopt::Long::Configure ("no_ignore_case");
 
     GetOptions ("d+" => \$debug,
 		"v+" => \$debug,
+		"help|?" => \$help,
 		"p=i" => \$self->{_args_ctrl_port},
 		"s" => \$self->{_args_daemon_mode},
 		"S" => \$self->{_args_run_in_background},
+                "P=s" => \$self->{_args_pidfile},
 		"V" => \$show_version,
-		"C=s" => \$self->{_config_file});
+		"C=s" => \$self->{_config_file},
+		"test" => \$self->{_test_mode});
 
     # Show version and exit?
     if ($show_version)
       {
-	print STDERR $self->{version_string};
+	print $self->{version_string}, "\n";
+	exit 0;
+      }
+
+    # Show help and exit?
+    if ($help)
+      {
+	print "ftpd [--help] [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file] [-P pidfile]\n";
 	exit 0;
       }
 
@@ -1193,12 +1349,15 @@ sub _be_daemon
     my $self = shift;
 
     syslog "info", "operating in daemon mode";
+    $self->_log_line ("[DAEMON Started]");
 
     # Discover the default FTP port from /etc/services or equivalent.
     my $default_port = getservbyname "ftp", "tcp" || 21;
 
     # Construct argument list to socket.
     my @args = (Reuse => 1,
+		Proto => "tcp",
+		Type => SOCK_STREAM,
 		LocalPort =>
 		defined $self->{_args_ctrl_port}
 		? $self->{_args_ctrl_port}
@@ -1230,16 +1389,32 @@ sub _be_daemon
 	  or warn "setsockopt: SO_KEEPALIVE: $!";
       }
 
+    $self->post_bind_hook;
+
     # Automatically clean up zombie children.
-    $SIG{CHLD} = sub { wait };
+    if ($Config{osname} !~ /solaris/) {
+      $SIG{CHLD} = sub { wait };
+    } else {
+      $SIG{CHLD} = "IGNORE";
+    }
 
     # Accept new connections and fork off new process to handle it.
     for (;;)
       {
 	$self->pre_accept_hook;
 
-	my $sock = $self->{_ctrl_sock}->accept
-	  or die "accept: $!";
+	# ACCEPT may be undefined if, for example, the TCP-level 3-way
+	# handshake is not completed. If this happens, all we really want
+	# to do is to retry the accept, not die. Thanks to
+	# rbrown@about-inc.com for pointing this one out :-)
+
+	my $sock;
+
+	until (defined $sock)
+	  {
+	    $sock = $self->{_ctrl_sock}->accept;
+	    warn "accept: $!" unless defined $sock;
+	  }
 
 	# Fork off a process to handle this connection.
 	my $pid = fork;
@@ -1248,7 +1423,7 @@ sub _be_daemon
 	    if ($pid == 0)		# Child process.
 	      {
 		syslog "info", "starting child process" if $self->{debug};
-		
+
 		# Duplicate the socket so it looks like we were called
 		# from inetd.
 		dup2 ($sock->fileno, 0);
@@ -1277,8 +1452,7 @@ sub _open_config_file
     my $config = new IO::File "<$config_file";
     unless ($config)
       {
-	warn "cannot open configuration file: $config_file: $! (skipping)";
-	return;
+	die "cannot open configuration file: $config_file: $!";
       }
 
     my $lineno = 0;
@@ -1367,12 +1541,6 @@ sub _open_config_file
 	$self->{_config}{$key} = [] unless exists $self->{_config}{$key};
 	push @{$self->{_config}{$key}}, $value;
       }
-
-#    # Print out the configuration options.
-#    foreach (sort keys %{$self->{_config}})
-#      {
-#	warn "$_: [" . join (", ", @{$self->{_config}{$_}}) . "]";
-#      }
   }
 
 # Before printing something received from the user to syslog, escape
@@ -1578,6 +1746,7 @@ sub _USER_command
 	unless ($self->config ("allow anonymous"))
 	  {
 	    $self->reply (421, "Anonymous logins not permitted.");
+            $self->_log_line ("[No anonymous allowed]");
 	    exit 0;
 	  }
 
@@ -1689,6 +1858,7 @@ sub _PASS_command
 
 	    # See RFC 2577 section 5.
 	    $self->reply (421, "Too many login attempts. Goodbye.");
+            $self->_log_line ("[Max logins reached]");
 	    exit 0;
 	  }
 
@@ -1700,6 +1870,7 @@ sub _PASS_command
     unless ($self->_eval_rule ("user access control rule"))
       {
 	$self->reply (421, "User denied by server configuration. Goodbye.");
+        $self->_log_line ("[Client denied]");
 	exit;
       }
 
@@ -1813,7 +1984,7 @@ sub _PASS_command
       }
     else
       {
-	warn "no home directory for user: $self->{user}";
+	syslog "warning", "no home directory for user: $self->{user}";
       }
 
   }
@@ -2024,6 +2195,13 @@ sub _QUIT_command
 
     $self->reply (221, "Goodbye. Service closing connection.");
     syslog "info", "connection terminated normally";
+
+    my $host =
+      ! $self->{_test_mode}
+      ? "$self->{peeraddrstring}:$self->{peerport}"
+      : "";
+
+    $self->_log_line ("[ENDED BY SERVER $host]");
     exit;
   }
 
@@ -2065,7 +2243,7 @@ sub _PORT_command
     # Are we connecting back to the client?
     unless ($self->config ("allow proxy ftp"))
       {
-	if ($hostaddrstring ne $self->{peeraddrstring})
+	if (!$self->{_test_mode} && $hostaddrstring ne $self->{peeraddrstring})
 	  {
 	    # See RFC 2577 section 3.
 	    $self->reply (504, "Proxy FTP is not allowed on this server.");
@@ -2096,6 +2274,7 @@ sub _PORT_command
     $self->{_hostaddrstring} = $hostaddrstring;
     $self->{_hostaddr} = inet_aton ($hostaddrstring);
     $self->{_hostport} = $hostport;
+    $self->{_passive} = 0;
 
     $self->reply (200, "PORT command OK.");
   }
@@ -2108,28 +2287,66 @@ sub _PASV_command
 
     # Open a listening socket - but don't actually accept on it yet.
     # RFC 2577 section 8 suggests using random local port numbers.
+    # In order to make firewall rules on FTP servers more sane, make
+    # the range of local port numbers configurable, and default to
+    # only opening ports in the range 49152-65535 (see:
+    # http://www.isi.edu/in-notes/iana/assignments/port-numbers for
+    # rationale).
+    my $port_range = $self->config ("passive port range");
+    $port_range = "49152-65535" unless defined $port_range;
 
-    # Note: Why don't I just use ``LocalPort => 0''? Well, I did, but
-    # IO::Socket::INET used to just throw the following wierd error:
-    # Argument "PASV" isn't numeric in entersub at \
-    #   /usr/lib/perl5/5.00503/i686-linux/IO/Socket/INET.pm line 194
-    # (note that $_ = "PASV" at this point). Why?
+    my $sock;
 
-    my ($sock, $count);
-    $count = 100;
-
-    until (defined $sock || --$count == 0)
+    if ($port_range eq "0")
       {
-	# XXX Use a secure source of random numbers, otherwise this
-	# is a little bit pointless ...
+	# Use the standard kernel determined ephemeral port
+	# by leaving off LocalPort parameter.
+	$sock = IO::Socket::INET->new
+	  (Listen => 1,
+	   LocalAddr => $self->{sockaddrstring},
+	   Reuse => 1,
+	   Proto => "tcp",
+	   Type => SOCK_STREAM);
+      }
+    else
+      {
+	# Parse the $port_range string and assign a port from the
+	# range at random.
+	my @ranges = split /\s*,\s*/, $port_range;
+	my $total_width = 0;
+	foreach (@ranges)
+	  {
+	    my ($min, $max) = split /\s*-\s*/, $_;
+	    $_ = [ $min, $max, $max - $min + 1 ];
+	    $total_width += $_->[2];
+	  }
 
-	# See http://www.isi.edu/in-notes/iana/assignments/port-numbers
-	my $port = int (rand (65535 - 49152)) + 49152;
+	# XXX We need to use a secure source of random numbers here, otherwise
+	# this is a little bit pointless.
+	my $count = 100;
 
-	$sock = IO::Socket::INET->new (Listen => 1,
-				       LocalAddr => $self->{sockaddrstring},
-				       LocalPort => $port,
-				       Reuse => 1);
+	until (defined $sock || --$count == 0)
+	  {
+	    my $n = int (rand $total_width);
+	    my $port;
+	    foreach (@ranges)
+	      {
+		if ($n < $_->[2])
+		  {
+		    $port = $_->[0] + $n;
+		    last;
+		  }
+		$n -= $_->[2];
+	      }
+
+	    $sock = IO::Socket::INET->new
+	      (Listen => 1,
+	       LocalAddr => $self->{sockaddrstring},
+	       LocalPort => $port,
+	       Reuse => 1,
+	       Proto => "tcp",
+	       Type => SOCK_STREAM);
+	  }
       }
 
     unless ($sock)
@@ -2144,18 +2361,28 @@ sub _PASV_command
 
     # Get our port number.
     my $sockport = $sock->sockport;
-    my $sockaddrstring = $self->{sockaddrstring};
-
-    # We will need to revise this for IPv6 XXX
-    die unless $sockaddrstring =~ /^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$/;
 
     # Split the port number into high and low components.
     my $p1 = int ($sockport / 256);
     my $p2 = $sockport % 256;
 
-    # Be very precise about this error message, since most clients
-    # will have to parse the whole of it.
-    $self->reply (227, "Entering Passive Mode ($1, $2, $3, $4, $p1, $p2)");
+    unless ($self->{_test_mode})
+      {
+	my $sockaddrstring = $self->{sockaddrstring};
+
+	# We will need to revise this for IPv6 XXX
+	die
+	  unless $sockaddrstring =~ /^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$/;
+
+	# Be very precise about this error message, since most clients
+	# will have to parse the whole of it.
+	$self->reply (227, "Entering Passive Mode ($1,$2,$3,$4,$p1,$p2)");
+      }
+    else
+      {
+	# Test mode: connect back to localhost.
+	$self->reply (227, "Entering Passive Mode (127,0,0,1,$p1,$p2)");
+      }
   }
 
 sub _TYPE_command
@@ -2236,6 +2463,7 @@ sub _RETR_command
     my $rest = shift;
 
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
+    my $transfer_hook;
 
     unless ($fileh)
       {
@@ -2297,32 +2525,58 @@ sub _RETR_command
 	# Copy data.
 	while ($r = $file->sysread ($buffer, 65536))
 	  {
+	    # Restart alarm clock timer.
+	    alarm $self->{_idle_timeout};
+
+	    if ($transfer_hook
+		= $self->transfer_hook ("r", $file, $sock, \$buffer))
+	      {
+		$sock->close;
+		$file->close;
+		$self->reply (426,
+			      "File retrieval error: $transfer_hook",
+			      "Data connection has been closed.");
+		return;
+	      }
+
 	    for ($n = 0; $n < $r; )
 	      {
-		$w = $sock->syswrite ($buffer, $r - $n);
+		$w = $sock->syswrite ($buffer, $r - $n, $n);
 
 		unless (defined $w)
 		  {
 		    # There was an error.
+		    my $reason = $!;
+
 		    $sock->close;
 		    $file->close;
 		    $self->reply (426,
-				  "File retrieval error: $!",
+				  "File retrieval error: $reason",
 				  "Data connection has been closed.");
 		    return;
 		  }
 
 		$n += $w;
 	      }
+
+	    # Transfer aborted by client?
+	    if ($self->{_urgent})
+	      {
+		$self->reply (426, "Transfer aborted. Data connection closed.");
+		$self->{_urgent} = 0;
+		return;
+	      }
 	  }
 
 	unless (defined $r)
 	  {
 	    # There was an error.
+	    my $reason = $!;
+
 	    $sock->close;
 	    $file->close;
 	    $self->reply (426,
-			  "File retrieval error: $!",
+			  "File retrieval error: $reason",
 			  "Data connection has been closed.");
 	    return;
 	  }
@@ -2344,8 +2598,28 @@ sub _RETR_command
 	  {
 	    # Remove any native line endings.
 	    s/[\n\r]+$//;
+
+	    # Restart alarm clock timer.
+	    alarm $self->{_idle_timeout};
+
+	    if ($transfer_hook = $self->transfer_hook ("r", $file, $sock, \$_))
+	      {
+		$sock->close;
+		$file->close;
+		$self->reply (426,
+			      "File retrieval error: $transfer_hook",
+			      "Data connection has been closed.");
+		return;
+	      }
+
 	    # Write the line with telnet-format line endings.
 	    $sock->print ("$_\r\n");
+	    if ($self->{_urgent})
+	      {
+		$self->reply (426, "Transfer aborted. Data connection closed.");
+		$self->{_urgent} = 0;
+		return;
+	      }
 	  }
       }
 
@@ -2461,6 +2735,8 @@ sub _RNTO_command
 	return;
       }
 
+    delete $self->{_rename_fileh};
+
     $self->reply (250, "File has been renamed.");
   }
 
@@ -2470,7 +2746,6 @@ sub _ABOR_command
     my $cmd = shift;
     my $rest = shift;
 
-    # XXX The ability to abort a transfer in progress is not implemented yet.
     $self->reply (226, "Command aborted successfully.");
   }
 
@@ -2583,7 +2858,7 @@ sub _PWD_command
     $pathname =~ s,/+$,, unless $pathname eq "/";
     $pathname =~ tr,/,/,s;
 
-    $self->reply (257, "\"" . $pathname . "\"");
+    $self->reply (257, "\"$pathname\"");
   }
 
 sub _LIST_command
@@ -2591,6 +2866,11 @@ sub _LIST_command
     my $self = shift;
     my $cmd = shift;
     my $rest = shift;
+
+    # This is something of a hack. Some clients expect a Unix server
+    # to respond to flags on the 'ls command line'. Remove these flags
+    # and ignore them. This is particularly an issue with ncftp 2.4.3.
+    $rest =~ s/^-[a-zA-Z0-9]+\s?//;
 
     my ($dirh, $wildcard, $fileh, $filename)
       = $self->_list ($rest);
@@ -2620,11 +2900,16 @@ sub _LIST_command
 	return;
       }
 
+    # If the path ($rest) contains a directory name, extract it so that
+    # we can prefix it to every filename listed. Thanks rbrown@about-inc.com
+    # for pointing this problem out.
+    my $prefix = (($fileh || $wildcard) && $rest =~ /(.*\/).*/) ? $1 : "";
+
     # OK, we're either listing a full directory, listing a single
     # file or listing a wildcard.
     if ($fileh)			# Single file in $dirh.
       {
-	$self->_list_file ($sock, $fileh, $filename);
+	$self->_list_file ($sock, $fileh, $prefix . $filename);
       }
     else			# Wildcard or full directory $dirh.
       {
@@ -2649,7 +2934,7 @@ sub _LIST_command
 	    my $handle = $_->[1];
 	    my $statusref = $_->[2];
 
-	    $self->_list_file ($sock, $handle, $filename, $statusref);
+	    $self->_list_file ($sock, $handle, $prefix . $filename, $statusref);
 	  }
       }
 
@@ -2663,6 +2948,11 @@ sub _NLST_command
     my $self = shift;
     my $cmd = shift;
     my $rest = shift;
+
+    # This is something of a hack. Some clients expect a Unix server
+    # to respond to flags on the 'ls command line'. Remove these flags
+    # and ignore them. This is particularly an issue with ncftp 2.4.3.
+    $rest =~ s/^-[a-zA-Z0-9]+\s?//;
 
     my ($dirh, $wildcard, $fileh, $filename)
       = $self->_list ($rest);
@@ -2684,11 +2974,16 @@ sub _NLST_command
 	return;
       }
 
+    # If the path ($rest) contains a directory name, extract it so that
+    # we can prefix it to every filename listed. Thanks rbrown@about-inc.com
+    # for pointing this problem out.
+    my $prefix = (($fileh || $wildcard) && $rest =~ /(.*\/).*/) ? $1 : "";
+
     # OK, we're either listing a full directory, listing a single
     # file or listing a wildcard.
     if ($fileh)			# Single file in $dirh.
       {
-	$sock->print ($filename, "\r\n");
+	$sock->print ($prefix . $filename, "\r\n");
       }
     else			# Wildcard or full directory $dirh.
       {
@@ -2699,7 +2994,7 @@ sub _NLST_command
 	    my $filename = $_->[0];
 	    my $handle = $_->[1];
 
-	    $sock->print ($filename, "\r\n");
+	    $sock->print ($prefix . $filename, "\r\n");
 	  }
       }
 
@@ -2744,6 +3039,13 @@ sub _SITE_EXEC_command
     unless ($self->config ("allow site exec command"))
       {
 	$self->reply (502, "SITE EXEC is disabled at this site.");
+	return;
+      }
+
+    # Don't allow this command for anonymous users.
+    if ($self->{user_is_anonymous})
+      {
+	$self->reply (502, "SITE EXEC is not permitted for anonymous logins.");
 	return;
       }
 
@@ -2852,7 +3154,7 @@ sub _SITE_CHECKMETHOD_command
     my $cmd = shift;
     my $rest = shift;
 
-    $rest = uc ($rest);
+    $rest = uc $rest;
 
     if ($rest eq "MD5")
       {
@@ -2919,7 +3221,9 @@ sub _SITE_IDLE_command
 
     # As with wu-ftpd, we only allow idle timeouts to be set between
     # 30 seconds and the current maximum set in the configuration file.
-    my $min_timeout = 30;
+    # In test mode, allow the idle timeout to be set to as small as 1
+    # second -- useful for testing without having to hang around.
+    my $min_timeout = ! $self->{_test_mode} ? 30 : 1;
     my $max_timeout = $self->config ("timeout") || $_default_timeout;
 
     unless ($rest =~ /^[1-9][0-9]*$/ &&
@@ -3008,10 +3312,12 @@ sub _STAT_command
 
 	$status{"Data Connection"} = "None"; # XXX
 
-	$status{Client} = "$self->{peeraddrstring}:$self->{peerport}";
-	$status{Client}
-	.= " ($self->{peerhostname}:$self->{peerport})"
-	  if $self->{peerhostname};
+	if ($self->{peeraddrstring} && $self->{peerport})
+	  {
+	    $status{Client} = "$self->{peeraddrstring}:$self->{peerport}";
+	    $status{Client} .= " ($self->{peerhostname}:$self->{peerport})"
+	      if $self->{peerhostname};
+	  }
 
 	unless ($self->{user_is_anonymous})
 	  {
@@ -3069,12 +3375,22 @@ sub _HELP_command
     my $cmd = shift;
     my $rest = shift;
 
+    my @version_info = ();
+
+    # Dan Bernstein recommends sending the server version info here.
+    unless (defined $self->config ("allow site version command") &&
+	    ! $self->config ("allow site version command"))
+      {
+	@version_info = ( $self->{version_string} );
+      }
+
     # Without any arguments, return a list of commands supported.
     if ($rest eq "")
       {
 	my @lines = _format_list (sort keys %{$self->{command_table}});
 
 	$self->reply (214,
+		      @version_info,
 		      "The following commands are recognized:",
 		      @lines,
 		      "You can also use HELP SITE to list site specific commands.");
@@ -3085,6 +3401,7 @@ sub _HELP_command
 	my @lines = _format_list (sort keys %{$self->{site_command_table}});
 
 	$self->reply (214,
+		      @version_info,
 		      "The following commands are recognized:",
 		      @lines,
 		      "You can also use HELP to list general commands.");
@@ -3131,27 +3448,27 @@ sub _NOOP_command
 
 sub _XMKD_command
   {
-    return _MKD_command (@_);
+    return shift->_MKD_command (@_);
   }
 
 sub _XRMD_command
   {
-    return _RMD_command (@_);
+    return shift->_RMD_command (@_);
   }
 
 sub _XPWD_command
   {
-    return _PWD_command (@_);
+    return shift->_PWD_command (@_);
   }
 
 sub _XCUP_command
   {
-    return _CDUP_command (@_);
+    return shift->_CDUP_command (@_);
   }
 
 sub _XCWD_command
   {
-    return _CWD_command (@_);
+    return shift->_CWD_command (@_);
   }
 
 sub _FEAT_command
@@ -3376,7 +3693,12 @@ sub _MLST_command
       }
 
     # Check access control.
-    # XXX CHECK LIST RULE HERE.
+    unless ($self->_eval_rule ("list rule",
+			       undef, undef, $fileh->dir->pathname))
+      {
+	$self->reply (550, "LIST command denied by server configuration.");
+	return;
+      }
 
     # Get the status.
     my ($mode, $perms, $nlink, $user, $group, $size, $time)
@@ -3895,6 +4217,7 @@ sub open_data_connection
 	  = new IO::Socket::INET->new (PeerAddr => $self->{_hostaddrstring},
 				       PeerPort => $self->{_hostport},
 				       Proto => "tcp",
+				       Type => SOCK_STREAM,
 				       Reuse => 1)
 	    or return undef;
       }
@@ -4004,13 +4327,30 @@ sub _store
     my $unique = $params{unique} || 0;
     my $append = $params{append} || 0;
 
-    # Get the directory.
-    my ($dirh, $fileh, $filename) = $self->_get ($path);
+    my ($dirh, $fileh, $filename, $transfer_hook);
 
-    unless ($dirh)
+    unless ($unique)
       {
-	$self->reply (550, "File or directory not found.");
-	return;
+	# Get the directory.
+	($dirh, $fileh, $filename) = $self->_get ($path);
+
+	unless ($dirh)
+	  {
+	    $self->reply (550, "File or directory not found.");
+	    return;
+	  }
+      }
+    else			# STOU command -- ignore any parameters.
+      {
+	$dirh = $self->{cwd};
+
+	# Choose a unique name for this file.
+	my $i = 0;
+	while ($dirh->get ("X$i")) {
+	  $i++;
+	}
+
+	$filename = "X$i";
       }
 
     # Check access control.
@@ -4031,12 +4371,6 @@ sub _store
 	$self->reply (550, "Cannot rename file.");
 	return;
       }
-
-    # Choose a unique name for this file, not very cleverly.
-    # XXX Is there a security problem here? One obvious problem
-    # is that it reveals the server's PID which might be useful
-    # to crackers under some circumstances.
-    $filename = "X$$" if $unique;
 
     # Try to open the file.
     my $file = $dirh->open ($filename, ($append ? "a" : "w"));
@@ -4079,17 +4413,33 @@ sub _store
 	# Copy data.
 	while ($r = $sock->sysread ($buffer, 65536))
 	  {
+	    # Restart alarm clock timer.
+	    alarm $self->{_idle_timeout};
+
+	    if ($transfer_hook
+		= $self->transfer_hook ("w", $file, $sock, \$buffer))
+	      {
+		$sock->close;
+		$file->close;
+		$self->reply (426,
+			      "File store error: $transfer_hook",
+			      "Data connection has been closed.");
+		return;
+	      }
+
 	    for ($n = 0; $n < $r; )
 	      {
-		$w = $file->syswrite ($buffer, $r - $n);
+		$w = $file->syswrite ($buffer, $r - $n, $n);
 
 		unless (defined $w)
 		  {
 		    # There was an error.
+		    my $reason = $!;
+
 		    $sock->close;
 		    $file->close;
 		    $self->reply (426,
-				  "File retrieval error: $!",
+				  "File store error: $reason",
 				  "Data connection has been closed.");
 		    return;
 		  }
@@ -4101,10 +4451,12 @@ sub _store
 	unless (defined $r)
 	  {
 	    # There was an error.
+	    my $reason = $!;
+
 	    $sock->close;
 	    $file->close;
 	    $self->reply (426,
-			  "File retrieval error: $!",
+			  "File store error: $reason",
 			  "Data connection has been closed.");
 	    return;
 	  }
@@ -4117,9 +4469,34 @@ sub _store
 	while ($_ = $sock->getline)
 	  {
 	    # Remove any telnet-format line endings.
-	    s/[\n\r]+$//;
+	    s/[\n\r]*$//;
+
+	    # Restart alarm clock timer.
+	    alarm $self->{_idle_timeout};
+
+	    if ($transfer_hook = $self->transfer_hook ("w", $file, $sock, \$_))
+	      {
+		$sock->close;
+		$file->close;
+		$self->reply (426,
+			      "File store error: $transfer_hook",
+			      "Data connection has been closed.");
+		return;
+	      }
+
 	    # Write the line with native format line endings.
-	    $file->print ("$_\n");
+	    my $w = $file->print ("$_\n");
+	    unless (defined $w)
+	      {
+		my $reason = $!;
+		# There was an error.
+		$sock->close;
+		$file->close;
+		$self->reply (426,
+			      "File store error: $reason",
+			      "Data connection has been closed.");
+		return;
+	      }
 	  }
       }
 
@@ -4177,6 +4554,21 @@ Status: optional.
 =cut
 
 sub post_configuration_hook
+  {
+  }
+
+=pod
+
+=item $self->post_bind_hook ();
+
+Hook: Called only in daemon mode after the control port is bound
+but before starting the accept infinite loop block.
+
+Status: optional.
+
+=cut
+
+sub post_bind_hook
   {
   }
 
@@ -4277,15 +4669,15 @@ sub authentication_hook
 
 =item $self->user_login_hook ($user, $user_is_anon)
 
-Hook: Called just after user C<$user> has successfully logged in.
+Hook: Called just after user C<$user> has successfully logged in. A good
+place to change uid and chroot if necessary.
 
-Status: required.
+Status: optional.
 
 =cut
 
 sub user_login_hook
   {
-    die "user_login_hook is required";
   }
 
 =pod
@@ -4348,6 +4740,38 @@ sub command_filter_hook
     return 0;
   }
 
+
+=pod
+
+=item $error = $self->transfer_hook ($mode, $file, $sock, \$buffer);
+
+  $mode     -  Open mode on the File object (Either reading or writing)
+  $file     -  File object as returned from DirHandle::open
+  $sock     -  Data IO::Socket object used for transfering
+  \$buffer  -  Reference to current buffer about to be written
+
+The \$buffer is passed by reference to minimize the stack overhead
+for efficiency purposes only.  It is B<not> meant to be modified by
+the transfer_hook subroutine.  (It can cause corruption if the
+length of $buffer is modified.)
+
+Hook: This hook is called after reading $buffer and before writing
+$buffer to its destination.  If arg1 is "r", $buffer was read
+from the File object and written to the Data socket.  If arg1 is
+"w", $buffer will be written to the File object because it was
+read from the Data Socket.  The return value is the error for not
+being able to perform the write.  Return undef to avoid aborting
+the transfer process.
+
+Status: optional.
+
+=cut
+
+sub transfer_hook
+  {
+    return undef;
+  }
+
 =pod
 
 =item $self->post_command_hook
@@ -4373,6 +4797,8 @@ __END__
 
 The SIZE, REST and RETR commands probably do not work correctly
 in ASCII mode.
+
+REST does not work before STOR/STOU/APPE (is it supposed to?)
 
 You cannot abort a transfer in progress yet. Nor can you check
 the status of a transfer in progress. Using the telnet interrupt
@@ -4418,6 +4844,8 @@ the server should always timeout when waiting too long for an
 active data connection.
 
 Support for IPv6 (see RFC 2428), EPRT, EPSV commands.
+
+Upload and download tar.gz/zip files automatically.
 
 See also "XXX" comments in the code for other problems, missing features
 and bugs.

@@ -2,8 +2,8 @@
 
 Summary: Net::FTPServer - an extensible, secure FTP server
 Name: Net-FTPServer
-Version: 0.5.0
-Release: 1
+Version: 1.0.0
+Release: 3
 Copyright: GPL
 Group: Applications/Internet
 Source: %{name}-%{version}.tar.gz
@@ -12,6 +12,8 @@ Requires: Authen-PAM >= 0.10
 Requires: BSD-Resource >= 1.08
 Requires: Digest-MD5 >= 2.09
 Requires: Getopt-Long >= 2.23
+#Requires: IO >= 1.20
+Requires: IO-stringy >= 1.215-4
 Requires: perl >= 5.00503
 
 %description
@@ -24,21 +26,22 @@ Requires: perl >= 5.00503
 %build
 perl Makefile.PL
 make
+make test
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
 make PREFIX=$RPM_BUILD_ROOT/usr install
-find $RPM_BUILD_ROOT/usr/lib/perl5 -name perllocal.pod -exec rm -f {} \;
-
+find $RPM_BUILD_ROOT/usr -type f -print | perl -p -e "s@^$RPM_BUILD_ROOT(.*)@\$1*@g" | grep -v perllocal.pod > %{name}-filelist
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-
-%files
+%files -f %{name}-filelist
 %defattr(-,root,root)
-/usr/lib/perl5/man/man3/*
-/usr/lib/perl5/site_perl/5.005/Net/FTPServer.pm
-/usr/lib/perl5/site_perl/5.005/Net/FTPServer/
-/usr/lib/perl5/site_perl/5.005/%{_target}/auto/Net/FTPServer/
+
+%changelog
+* Tue Feb 15 2001 Rob Brown <rbrown@about-inc.com>
+- Generalized files - works with Perl 5.6 as well as with Perl 5.005
+* Tue Feb 08 2001 Richard Jones <rich@annexia.org>
+- initial creation

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.4 2000/11/02 17:56:23 rich Exp $
+# $Id: DirHandle.pm,v 1.1 2001/02/08 14:38:48 rich Exp $
 
 =pod
 
@@ -59,7 +59,7 @@ use vars qw(@ISA);
 @ISA = qw(Net::FTPServer::DirHandle);
 
 # Cached statement handles.
-use vars qw($sth1 $sth2 $sth3 $sth4 $sth5 $sth6 $sth7 $sth8 $sth9 $sth10 $sth11 $sth12 $sth13 $sth14);
+use vars qw($sth1 $sth2 $sth3 $sth4 $sth5 $sth6 $sth7 $sth8 $sth9 $sth10 $sth11 $sth12 $sth13 $sth14 $sth15 $sth16 $sth17 $sth18 $sth19 $sth20);
 
 # Return a new directory handle.
 
@@ -110,7 +110,7 @@ sub get
     # Search for the file first, since files are more common than dirs.
     my $sql = "select id, content from files where dir_id = ? and name = ?";
     $sth1 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth1->execute ($self->{fs_dir_id}, $filename);
+    $sth1->execute (int ($self->{fs_dir_id}), $filename);
 
     my $row = $sth1->fetch;
 
@@ -127,7 +127,7 @@ sub get
     # Search for a directory.
     $sql = "select id from directories where parent_id = ? and name = ?";
     $sth2 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth2->execute ($self->{fs_dir_id}, $filename);
+    $sth2->execute (int ($self->{fs_dir_id}), $filename);
 
     $row = $sth2->fetch;
 
@@ -157,7 +157,7 @@ sub parent
     # Find directory ID of the parent directory.
     my $sql = "select parent_id from directories where id = ?";
     $sth3 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth3->execute ($self->{fs_dir_id});
+    $sth3->execute (int ($self->{fs_dir_id}));
 
     my $row = $sth3->fetch
       or die "directory ID ", $self->{fs_dir_id}, " missing";
@@ -172,15 +172,44 @@ sub list
     my $self = shift;
     my $wildcard = shift;
 
+    # Convert wildcard into a SQL LIKE pattern.
+    if ($wildcard)
+      {
+        if ($wildcard ne "*")
+          {
+            $wildcard =~ s/%/\\%/g;     # Escape any existing % and _.
+            $wildcard =~ s/_/\\_/g;
+            $wildcard =~ tr/*?/%_/;     # Translate to wierdo format.
+          }
+        else
+          {
+            # If wildcard is "*" then it defaults to undefined (for speed).
+            $wildcard = undef;
+          }
+      }
+
     # Get subdirectories.
-    my $sql = "select id, name from directories where parent_id = ?";
-    $sth4 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth4->execute ($self->{fs_dir_id});
+    my ($sql, $sth);
+    if ($wildcard)
+      {
+	$sql = "select id, name from directories
+                 where parent_id = ? and name like ?";
+	$sth15 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth15->execute (int ($self->{fs_dir_id}), $wildcard);
+	$sth = $sth15;
+      }
+    else
+      {
+	$sql = "select id, name from directories where parent_id = ?";
+	$sth4 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth4->execute (int ($self->{fs_dir_id}));
+	$sth = $sth4;
+      }
 
     my @result = ();
     my $username = substr $self->{ftps}{user}, 0, 8;
 
-    while (my $row = $sth4->fetch)
+    while (my $row = $sth->fetch)
       {
 	my $dirh
 	  = new Net::FTPServer::DBeg1::DirHandle ($self->{ftps},
@@ -191,11 +220,23 @@ sub list
       }
 
     # Get files.
-    $sql = "select id, name, content from files where dir_id = ?";
-    $sth5 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth5->execute ($self->{fs_dir_id});
+    if ($wildcard)
+      {
+	$sql = "select id, name, content from files
+                 where dir_id = ? and name like ?";
+	$sth16 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth16->execute (int ($self->{fs_dir_id}), $wildcard);
+	$sth = $sth16;
+      }
+    else
+      {
+	$sql = "select id, name, content from files where dir_id = ?";
+	$sth5 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth5->execute (int ($self->{fs_dir_id}));
+	$sth = $sth5;
+      }
 
-    while (my $row = $sth5->fetch)
+    while (my $row = $sth->fetch)
       {
 	my $fileh
 	  = new Net::FTPServer::DBeg1::FileHandle ($self->{ftps},
@@ -215,15 +256,44 @@ sub list_status
     my $self = shift;
     my $wildcard = shift;
 
+    # Convert wildcard into a SQL LIKE pattern.
+    if ($wildcard)
+      {
+        if ($wildcard ne "*")
+          {
+            $wildcard =~ s/%/\\%/g;     # Escape any existing % and _.
+            $wildcard =~ s/_/\\_/g;
+            $wildcard =~ tr/*?/%_/;     # Translate to wierdo format.
+          }
+        else
+          {
+            # If wildcard is "*" then it defaults to undefined (for speed).
+            $wildcard = undef;
+          }
+      }
+
     # Get subdirectories.
-    my $sql = "select id, name from directories where parent_id = ?";
-    $sth4 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth4->execute ($self->{fs_dir_id});
+    my ($sql, $sth);
+    if ($wildcard)
+      {
+	$sql = "select id, name from directories
+                 where parent_id = ? and name like ?";
+	$sth18 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth18->execute (int ($self->{fs_dir_id}), $wildcard);
+	$sth = $sth18;
+      }
+    else
+      {
+	$sql = "select id, name from directories where parent_id = ?";
+	$sth17 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth17->execute (int ($self->{fs_dir_id}));
+	$sth = $sth17;
+      }
 
     my @result = ();
     my $username = substr $self->{ftps}{user}, 0, 8;
 
-    while (my $row = $sth4->fetch)
+    while (my $row = $sth->fetch)
       {
 	my $dirh
 	  = new Net::FTPServer::DBeg1::DirHandle ($self->{ftps},
@@ -235,11 +305,23 @@ sub list_status
       }
 
     # Get files.
-    $sql = "select id, name, content from files where dir_id = ?";
-    $sth5 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth5->execute ($self->{fs_dir_id});
+    if ($wildcard)
+      {
+	$sql = "select id, name, content from files
+                 where dir_id = ? and name like ?";
+	$sth20 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth20->execute (int ($self->{fs_dir_id}), $wildcard);
+	$sth = $sth20;
+      }
+    else
+      {
+	$sql = "select id, name, content from files where dir_id = ?";
+	$sth19 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
+	$sth19->execute (int ($self->{fs_dir_id}));
+	$sth = $sth19;
+      }
 
-    while (my $row = $sth5->fetch)
+    while (my $row = $sth->fetch)
       {
 	my $fileh
 	  = new Net::FTPServer::DBeg1::FileHandle ($self->{ftps},
@@ -278,7 +360,8 @@ sub move
 
     my $sql = "update directories set parent_id = ?, name = ? where id = ?";
     $sth12 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth12->execute ($dirh->{fs_dir_id}, $filename, $self->{fs_dir_id});
+    $sth12->execute (int ($dirh->{fs_dir_id}), $filename,
+		     int ($self->{fs_dir_id}));
 
     return 0;
   }
@@ -295,7 +378,7 @@ sub delete
     # Check referential constraints.
     my $sql = "select count(id) from files where dir_id = ?";
     $sth7 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth7->execute ($self->{fs_dir_id});
+    $sth7->execute (int ($self->{fs_dir_id}));
 
     my $row = $sth7->fetch or die "no rows returned from count";
 
@@ -303,7 +386,7 @@ sub delete
 
     $sql = "select count(id) from directories where parent_id = ?";
     $sth8 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth8->execute ($self->{fs_dir_id});
+    $sth8->execute (int ($self->{fs_dir_id}));
 
     $row = $sth8->fetch or die "no rows returned from count";
 
@@ -314,7 +397,7 @@ sub delete
     # Delete the directory.
     $sql = "delete from directories where id = ?";
     $sth9 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth9->execute ($self->{fs_dir_id});
+    $sth9->execute (int ($self->{fs_dir_id}));
 
     return 0;
   }
@@ -329,7 +412,7 @@ sub mkdir
     my $sql = "insert into directories (parent_id, name)
                                 values (?, ?)";
     $sth10 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-    $sth10->execute ($self->{fs_dir_id}, $dirname);
+    $sth10->execute (int ($self->{fs_dir_id}), $dirname);
 
     return 0;
   }
@@ -346,7 +429,7 @@ sub open
       {
 	my $sql = "select content from files where dir_id = ? and name = ?";
 	$sth11 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-	$sth11->execute ($self->{fs_dir_id}, $filename);
+	$sth11->execute (int ($self->{fs_dir_id}), $filename);
 
 	my $row = $sth11->fetch or return undef;
 
@@ -361,7 +444,7 @@ sub open
 	# Insert it into the database.
 	my $sql = "insert into files (name, dir_id, content) values (?, ?, ?)";
 	$sth14 ||= $dbh->prepare ($sql);
-	$sth14->execute ($filename, $self->{fs_dir_id}, $blob_id);
+	$sth14->execute ($filename, int ($self->{fs_dir_id}), $blob_id);
 
 	return new Net::FTPServer::DBeg1::IOBlob ('w', $self->{ftps}{fs_dbh}, $blob_id);
       }
@@ -369,7 +452,7 @@ sub open
       {
 	my $sql = "select content from files where dir_id = ? and name = ?";
 	$sth13 ||= $self->{ftps}{fs_dbh}->prepare ($sql);
-	$sth13->execute ($self->{fs_dir_id}, $filename);
+	$sth13->execute (int ($self->{fs_dir_id}), $filename);
 
 	my $row = $sth13->fetch or return undef;
 
