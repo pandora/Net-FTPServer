@@ -1,4 +1,4 @@
-$Id: README,v 1.33 2001/08/23 11:35:28 rich Exp $
+$Id: README,v 1.35 2001/08/23 16:11:49 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -72,12 +72,18 @@ Richard Jones <rich@annexia.org>.
 CHANGE LOG
 ---------------------------------------------
 
+Version 1.029: Solaris missing RLIMIT_NPROC fixed (?).  Further fixes
+for Perl 5.7.2: no longer opens /dev/null twice by accident. Cleaned
+up the way that command line arguments are handled and added the "-o"
+option which allows you to override configuration file values on the
+command line. "--help" information enhanced. Documentation updates.
+
 Version 1.028: Change directory to root ("/") when in daemon mode
 [Rob]. Various fixes and workarounds for Perl 5.7 [Rich]. Various
 changes to RPM spec file so that it works cleanly under all versions
 of Perl [dan at berrange dot com]. It has been reported to me that
 this version does not work on Solaris because of a seemingly minor bug
-(RLMIT_NPROC is missing).  Unfortunately I don't have a suitable box
+(RLIMIT_NPROC is missing).  Unfortunately I don't have a suitable box
 to reproduce this on. Can anyone help with a patch please?
 
 Version 1.027: VFS only required to support relative forward seeks to

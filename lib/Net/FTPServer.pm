@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.141 2001/08/23 11:24:16 rich Exp $
+# $Id: FTPServer.pm,v 1.143 2001/08/23 16:11:50 rich Exp $
 
 =pod
 
@@ -29,7 +29,8 @@ Net::FTPServer - A secure, extensible and configurable Perl FTP server
 
 =head1 SYNOPSIS
 
-  ftpd [--help] [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file] [-P pidfile]
+  ftpd [--help] [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file]
+       [-P pidfile] [-o option=value]
 
 =head1 DESCRIPTION
 
@@ -110,15 +111,16 @@ After editing this file you will need to inform C<inetd>:
 
 =head1 COMMAND LINE FLAGS
 
-  --help       Display help and exit
-  -d, -v       Enable debugging
-  -p PORT      Listen on port PORT instead of the default port
-  -s           Run in daemon mode (default: run from inetd)
-  -S           Run in background and in daemon mode
-  -V           Show version information and exit
-  -C CONF      Use CONF as configuration file (default: /etc/ftpd.conf)
-  -P PIDFILE   Save pid into PIDFILE (daemon mode only)
-  --test       Test mode (used only in automatic testing scripts)
+  --help           Display help and exit
+  -d, -v           Enable debugging
+  -p PORT          Listen on port PORT instead of the default port
+  -s               Run in daemon mode (default: run from inetd)
+  -S               Run in background and in daemon mode
+  -V               Show version information and exit
+  -C CONF          Use CONF as configuration file (default: /etc/ftpd.conf)
+  -P PIDFILE       Save pid into PIDFILE (daemon mode only)
+  -o option=value  Override config file option with value
+  --test           Test mode (used only in automatic testing scripts)
 
 =head1 CONFIGURING AND EXTENDING THE SERVER
 
@@ -1211,19 +1213,6 @@ Here is a good idea that Rob Brown had:
 Notice how this allows you to crunch a possibly very large
 configuration file into a hash, for very rapid loading at run time.
 
-Here is another powerful way to use E<lt>PerlE<gt>: namely
-to extend the range of command line arguments available:
-
- <Perl>
- my $mc;
- GetOptions ("max-clients=i" => \$mc);
- $config{'max clients'} = $mc if $mc;
- </Perl>
-
-(A future version of Net::FTPServer will probably allow
-configuration options to be specified directly on the command
-line, but until then, use this method).
-
 Another useful example. Directory C</etc/ftpd/> contains a
 series of FTP server configuration files. Place the following
 code in C</etc/ftpd.conf> to load all of these files at run
@@ -1447,7 +1436,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.141 2001/08/23 11:24:16 rich Exp $
+  200-$Id: FTPServer.pm,v 1.143 2001/08/23 16:11:50 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1737,7 +1726,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.028';
+$VERSION = '1.029';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -2054,14 +2043,10 @@ sub run
       }
 
     # Daemon mode?
-    if (defined $self->{_args_daemon_mode}
-	? $self->{_args_daemon_mode}
-	: $self->config ("daemon mode"))
+    if ($self->config ("daemon mode"))
       {
 	# Fork into the background?
-	if (defined $self->{_args_run_in_background}
-	    ? $self->{_args_run_in_background}
-	    : $self->config ("run in background"))
+	if ($self->config ("run in background"))
 	  {
 	    $self->_fork_into_background;
 	  }
@@ -2125,14 +2110,14 @@ sub run
 		if ($sitename)
 		  {
 		    $self->log ("info",
-				   "IP-based virtual hosts: ".
-				   "set site to $sitename");
+				"IP-based virtual hosts: ".
+				"set site to $sitename");
 		  }
 		else
 		  {
 		    $self->log ("info",
-				   "IP-based virtual hosts: ".
-				   "no site found");
+				"IP-based virtual hosts: ".
+				"no site found");
 		  }
 	      }
 	  }
@@ -2473,7 +2458,7 @@ sub run
 	my ($cmd, $rest) = (uc $1, $2);
 
 	$self->log ("info", "command: (%s, %s)",
-		       _escape($cmd), _escape($rest))
+		    _escape ($cmd), _escape ($rest))
 	  if $self->{debug};
 
 	# Command requires user to be authenticated?
@@ -2618,11 +2603,10 @@ sub _log_line
 sub _save_pid
   {
     my $self = shift;
+
     # Store pid into pidfile?
-    $self->{_pidfile} =
-      (defined $self->{_args_pidfile}
-       ? $self->{_args_pidfile}
-       : $self->config ("pidfile"));
+    $self->{_pidfile} = $self->config ("pidfile");
+
     if (defined $self->{_pidfile})
       {
 	my $pidfile = $self->{_pidfile};
@@ -2654,17 +2638,11 @@ sub _set_rlimit
     my $value = shift;
 
     # The BSD::Resource module is optional, and may not be available.
-    if (exists $INC{"BSD/Resource.pm"})
+    if (exists $INC{"BSD/Resource.pm"} &&
+	exists get_rlimits()->{$name})
       {
-	if (exists get_rlimits()->{$name})
-	  {
-	    setrlimit (&{$ {BSD::Resource::}{$name}}, $value, $value)
-	      or die "setrlimit: $!";
-	  }
-	else
-	  {
-	    die "resource limit $name is not available";
-	  }
+	setrlimit (&{$ {BSD::Resource::}{$name}}, $value, $value)
+	  or die "setrlimit: $!";
       }
     else
       {
@@ -2688,21 +2666,25 @@ sub _get_configuration
     my $args = shift;
     local @ARGV = @$args;
 
-    my ($debug, $help, $show_version);
+    my ($debug, $help, $port, $s_option, $S_option,
+	$pidfile, $show_version, @overrides);
 
     Getopt::Long::Configure ("no_ignore_case");
     Getopt::Long::Configure ("pass_through");
 
-    GetOptions ("d+" => \$debug,
-		"v+" => \$debug,
-		"help|?" => \$help,
-		"p=i" => \$self->{_args_ctrl_port},
-		"s" => \$self->{_args_daemon_mode},
-		"S" => \$self->{_args_run_in_background},
-		"P=s" => \$self->{_args_pidfile},
-		"V" => \$show_version,
+    GetOptions (
 		"C=s" => \$self->{_config_file},
-		"test" => \$self->{_test_mode});
+		"d+" => \$debug,
+		"help|?" => \$help,
+		"o=s" => \@overrides,
+		"p=i" => \$port,
+		"P=s" => \$pidfile,
+		"s" => \$s_option,
+		"S" => \$S_option,
+		"test" => \$self->{_test_mode},
+		"v+" => \$debug,
+		"V" => \$show_version,
+	       );
 
     # Show version and exit?
     if ($show_version)
@@ -2714,18 +2696,72 @@ sub _get_configuration
     # Show help and exit?
     if ($help)
       {
-	print "ftpd [--help] [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file] [-P pidfile]\n";
+	my $name = $0;
+	$name =~ s,.*/,,;
+
+	print <<EOT;
+$name: $self->{version_string}
+
+Usage:
+  $name [-options]
+
+Options:
+  -?, --help            Print this help text and exit.
+  -d, -v                Debug mode on.
+  -p port               Specify listening port (defaults to FTP port, 21).
+  -s                    Run in daemon mode (default: run from inetd).
+  -S                    Run in background and in daemon mode.
+  -V                    Show version information and exit.
+  -C config_file        Specify configuration file (default: /etc/ftpd.conf).
+  -P pidfile            Save process ID into pidfile.
+  -o option=value       Override configuration file options.
+
+Normal standalone usage:
+
+  $name -S
+
+Normal usage from inetd:
+
+  ftp stream tcp nowait root /usr/sbin/tcpd in.ftpd
+
+For further information, please read the full documentation in the
+Net::FTPServer(3) manual page.
+EOT
 	exit 0;
       }
-
-    # Run in background implies daemon mode.
-    $self->{_args_daemon_mode} = 1
-      if defined $self->{_args_run_in_background};
 
     # Read the configuration file.
     $self->{_config} = {};
     $self->{_config_ip_host} = {};
     $self->_open_config_file ($self->{_config_file});
+
+    # Magically update configuration values with command line
+    # argument values. Thus configuration entered on the command
+    # line will override those present in the configuration file.
+    if ($port)
+      {
+	$self->_set_config ("port", $port);
+      }
+    if ($s_option)
+      {
+	$self->_set_config ("daemon mode", 1);
+      }
+    if ($S_option)
+      {
+	$self->_set_config ("daemon mode", 1);
+	$self->_set_config ("run in background", 1);
+      }
+    if ($pidfile)
+      {
+	$self->_set_config ("pidfile", $pidfile);
+      }
+
+    # Override other configuration file options.
+    foreach (@overrides)
+      {
+	my ($key, $value) = split /=/, $_, 2;
+	$self->_set_config ($key, $value, splat => 1);
+      }
 
     # Set debugging state.
     if (defined $debug) {
@@ -2753,7 +2789,7 @@ sub _fork_into_background
     # Close connection to tty and reopen 0, 1 as /dev/null.
     # Note that 2 points to the error log.
     open STDIN, "</dev/null";
-    open STDOUT, ">/dev/null";
+    open STDOUT, ">>/dev/null";
 
     $self->log ("info", "forked into background");
   }
@@ -2792,9 +2828,7 @@ sub _be_daemon
 		    Proto => "tcp",
 		    Type => SOCK_STREAM,
 		    LocalPort =>
-		    defined $self->{_args_ctrl_port}
-		    ? $self->{_args_ctrl_port}
-		    : (defined $self->config ("port")
+		    (defined $self->config ("port")
 		       ? $self->config ("port")
 		       : $default_port));
 
@@ -3078,11 +3112,11 @@ sub _open_config_file
 
 		unless (ref $value) {
 		  $self->_set_config ($_, $value,
-				      undef, $config_file, $lineno);
+				      file => $config_file, line => $lineno);
 		} else {
 		  foreach my $v (@$value) {
 		    $self->_set_config ($_, $v,
-					undef, $config_file, $lineno);
+					file => $config_file, line =>$lineno);
 		  }
 		}
 	      }
@@ -3096,11 +3130,15 @@ sub _open_config_file
 
 		    unless (ref $value) {
 		      $self->_set_config ($_, $value,
-					  $host, $config_file, $lineno);
+					  sitename => $host,
+					  file => $config_file,
+					  line => $lineno);
 		    } else {
 		      foreach my $v (@$value) {
 			$self->_set_config ($_, $v,
-					    $host, $config_file, $lineno);
+					    sitename => $host,
+					    file => $config_file,
+					    line => $lineno);
 		      }
 		    }
 		  }
@@ -3129,7 +3167,10 @@ sub _open_config_file
 	$value =~ s/^\s+//;
 	$value =~ s/\s+$//;
 
-	$self->_set_config ($key, $value, $sitename, $config_file, $lineno);
+	$self->_set_config ($key, $value,
+			    sitename => $sitename,
+			    file => $config_file,
+			    line => $lineno);
       }
   }
 
@@ -3138,9 +3179,12 @@ sub _set_config
     my $self = shift;
     my $key = shift;
     my $value = shift;
-    my $sitename = shift;
-    my $config_file = shift;
-    my $lineno = shift;
+    my %params = @_;
+
+    my $sitename = $params{sitename};
+    my $config_file = $params{file} || "no file";
+    my $lineno = $params{line} || "0";
+    my $splat = $params{splat};
 
     # Convert the key to standard form so that small errors in the
     # FTP config file won't matter too much.
@@ -3153,7 +3197,8 @@ sub _set_config
       {
 	unless ($sitename)
 	  {
-	    die "$config_file:$lineno: ``ip:'' must only appear inside a <Host> section. See the Net::FTPServer(3) manual page for more information.";
+	    print STDERR "$config_file:$lineno: ``ip:'' must only appear inside a <Host> section. See the Net::FTPServer(3) manual page for more information.\n";
+	    exit 1;
 	  }
 
 	$self->{_config_ip_host}{$value} = $sitename;
@@ -3165,7 +3210,7 @@ sub _set_config
 #    warn "configuration ($key, $value)";
 
     # Save this.
-    $self->{_config}{$key} = [] unless exists $self->{_config}{$key};
+    $self->{_config}{$key} = [] if $splat || ! exists $self->{_config}{$key};
     push @{$self->{_config}{$key}}, $value;
   }
 
