@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.4 2001/02/21 23:05:38 rich Exp $
+# $Id: DirHandle.pm,v 1.7 2001/06/12 17:08:48 rbrown Exp $
 
 =pod
 
@@ -98,10 +98,10 @@ sub get
     my $filename = shift;
 
     # None of these cases should ever happen.
-    confess unless $filename;
-    confess if $filename =~ /\//;
-    confess if $filename eq "..";
-    confess if $filename eq ".";
+    confess "no filename" unless defined($filename) && length($filename);
+    confess "slash filename" if $filename =~ /\//;
+    confess ".. filename"    if $filename eq "..";
+    confess ". filename"     if $filename eq ".";
 
     # Search for the file first, since files are more common than dirs.
     foreach (keys %files)
@@ -162,9 +162,7 @@ sub list
       {
 	if ($wildcard ne "*")
 	  {
-	    $wildcard =~ s/([^a-zA-Z0-9*?])/\\$1/g;
-	    $wildcard =~ s/\?/./g;
-	    $wildcard =~ s/\*/.*/g;
+	    $wildcard = $self->{ftps}->wildcard_to_regex ($wildcard);
 	  }
 	else
 	  {
@@ -177,7 +175,7 @@ sub list
     if ($wildcard)
       {
 	@dirs = grep { $dirs{$_}{parent} == $self->{fs_dir_id} &&
-		       $dirs{$_}{name} =~ /^$wildcard$/ } keys %dirs;
+		       $dirs{$_}{name} =~ /$wildcard/ } keys %dirs;
       }
     else
       {
@@ -202,7 +200,7 @@ sub list
     if ($wildcard)
       {
 	@files = grep { $files{$_}{dir_id} == $self->{fs_dir_id} &&
-			$files{$_}{name} =~ /^$wildcard$/ } keys %files;
+			$files{$_}{name} =~ /$wildcard/ } keys %files;
       }
     else
       {
@@ -234,9 +232,7 @@ sub list_status
       {
 	if ($wildcard ne "*")
 	  {
-	    $wildcard =~ s/([^a-zA-Z0-9*?])/\\$1/g;
-	    $wildcard =~ s/\?/./g;
-	    $wildcard =~ s/\*/.*/g;
+	    $wildcard = $self->{ftps}->wildcard_to_regex ($wildcard);
 	  }
 	else
 	  {
@@ -249,7 +245,7 @@ sub list_status
     if ($wildcard)
       {
 	@dirs = grep { $dirs{$_}{parent} == $self->{fs_dir_id} &&
-		       $dirs{$_}{name} =~ /^$wildcard$/ } keys %dirs;
+		       $dirs{$_}{name} =~ /$wildcard/ } keys %dirs;
       }
     else
       {
@@ -275,7 +271,7 @@ sub list_status
     if ($wildcard)
       {
 	@files = grep { $files{$_}{dir_id} == $self->{fs_dir_id} &&
-			$files{$_}{name} =~ /^$wildcard$/ } keys %files;
+			$files{$_}{name} =~ /$wildcard/ } keys %files;
       }
     else
       {

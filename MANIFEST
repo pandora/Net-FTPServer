@@ -12,12 +12,9 @@ README
 RollingBuild
 TODO
 dbeg1-ftpd
-doc/README
+doc/rfcs.txt
 doc/eg1-psql63.sql
 doc/eg1.sql
-doc/features.html
-doc/oldnews.html
-doc/site.html
 ftpd
 ftpd.conf
 inmem-ftpd

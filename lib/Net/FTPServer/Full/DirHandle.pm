@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.2 2001/05/29 16:48:54 rich Exp $
+# $Id: DirHandle.pm,v 1.5 2001/06/12 17:08:48 rbrown Exp $
 
 =pod
 
@@ -74,10 +74,10 @@ sub get
     my $filename = shift;
 
     # None of these cases should ever happen.
-    confess unless $filename;
-    confess if $filename =~ /\//;
-    confess if $filename eq "..";
-    confess if $filename eq ".";
+    confess "no filename" unless defined($filename) && length($filename);
+    confess "slash filename" if $filename =~ /\//;
+    confess ".. filename"    if $filename eq "..";
+    confess ". filename"     if $filename eq ".";
 
     my $pathname = $self->{_pathname} . $filename;
     lstat $pathname;
@@ -134,10 +134,7 @@ sub list
     # Convert wildcard to a regular expression.
     if ($wildcard)
       {
-	$wildcard =~ s,([^?*a-zA-Z0-9]),\\$1,g; # Escape punctuation.
-	$wildcard =~ s,\*,.*,g;	# Turn * into .*
-	$wildcard =~ s,\?,.,g;	# Turn ? into .
-	$wildcard = "^$wildcard\$"; # Bracket it.
+	$wildcard = $self->{ftps}->wildcard_to_regex ($wildcard);
       }
 
     my $dir = new IO::Dir ($self->{_pathname})

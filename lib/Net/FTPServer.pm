@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.71 2001/05/29 17:43:49 rich Exp $
+# $Id: FTPServer.pm,v 1.85 2001/06/19 17:36:02 rich Exp $
 
 =pod
 
@@ -246,6 +246,38 @@ Example:
  limit memory:       16384
  limit nr processes:    10
  limit nr files:        40
+
+=item max clients
+
+Limit on the number of clients who can simultaneously connect.
+If this limit is ever reached, new clients will immediately be
+closed.  It will not even ask the client to login.  This
+feature works in daemon mode only.
+
+Default: 255
+
+Example: C<max clients: 600>
+
+=item max clients message
+
+Message to display when ``max clients'' has been reached.
+
+You may use the following % escape sequences within the
+message for internal variables:
+
+ %x  ``max clients'' setting that has been reached
+ %E  maintainer email address (from ``maintainer email''
+     setting above)
+ %G  time in GMT
+ %R  remote hostname or IP address if ``resolve addresses''
+     is not set
+ %L  local hostname
+ %T  local time
+ %%  just an ordinary ``%''
+
+Default: Maximum connections reached
+
+Example: C<max clients message: Only %x simultaneous connections allowed.  Please try again later.>
 
 =item resolve addresses
 
@@ -565,6 +597,16 @@ Examples:
  client logging: /var/log/ftpd.log
  client logging: /tmp/ftpd_log.$hostname
 
+=item hide passwords in client log
+
+If set to 1, then password (C<PASS>) commands will not be
+logged in the client log. This option has no effect unless
+client logging is enabled.
+
+Default: 0 (PASS lines will be shown)
+
+Example: C<hide passwords in client log: 1>
+
 =item enable syslog
 
 Enable syslogging. If set, then Net::FTPServer will send much
@@ -600,6 +642,8 @@ Example: C<ident timeout: 10>
 =item list rule
 
 =item mkdir rule
+
+=item rename rule
 
 Access control rules.
  
@@ -740,6 +784,12 @@ no effect.
 Default: 1
 
 Example: C<mkdir rule: 0>
+
+Rename rule. This rule controls which files or directories can be renamed.
+
+Default: 1
+
+Example: C<rename rule: $pathname !~ m|/.htaccess$|>
 
 =item chdir message file
 
@@ -1244,7 +1294,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.71 2001/05/29 17:43:49 rich Exp $
+  200-$Id: FTPServer.pm,v 1.85 2001/06/19 17:36:02 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1534,7 +1584,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.14';
+$VERSION = '1.0.16';
 $RELEASE = 1;
 
 use Config;
@@ -1678,6 +1728,13 @@ sub run
 
     $self->post_configuration_hook;
 
+    # Initialize Max Clients Settings
+    $self->{_max_clients} =
+      $self->config ("max clients") || 255;
+    $self->{_max_clients_message} =
+      $self->config ("max clients message") ||
+        "Maximum connections reached";
+
     # Open syslog.
     $self->{_enable_syslog} =
       (!defined $self->config ("enable syslog") ||
@@ -1710,7 +1767,7 @@ sub run
     # Set up signal handlers to give us a clean exit.
     # XXX Are these inherited?
     $SIG{PIPE} = sub {
-      $self->syslog ("info", "client closed connection abruptly");
+      $self->syslog ("info", "client closed connection abruptly") if $self;
       exit;
     };
     $SIG{TERM} = sub {
@@ -1926,7 +1983,7 @@ sub run
 	$peeraddr = inet_aton ( $peeraddrstring = "127.0.0.1" );
       }
 
-    $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport]");
+    $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport] \#".($self->concurrent_connections +1));
     # Resolve the address.
     my $peerhostname;
     if ($self->config ("resolve addresses"))
@@ -2218,7 +2275,8 @@ sub run
 	s/^\377.// while m/^\377./;
 
 	# Log client command if logging is enabled.
-	$self->_log_line ($_);
+	$self->_log_line ($_)
+	  unless /^PASS / && $self->config ("hide passwords in client log");
 
 	# Go slow?
 	sleep $self->config ("command wait")
@@ -2474,19 +2532,36 @@ sub _be_daemon
 	  or warn "setsockopt: SO_KEEPALIVE: $!";
       }
 
+    # Initialize the children hash ref for max clients enforcement
+    $self->{_children} = {};
+
     $self->post_bind_hook;
 
     # Automatically clean up zombie children.
-    $SIG{CHLD} = sub {
-      my $kid;
-      while (($kid = waitpid (-1,WNOHANG)) > 0) {}
-    };
+    $SIG{CHLD} = sub
+      {
+	my $kid;
+	while (($kid = waitpid (-1,WNOHANG)) > 0)
+	  {
+	    # Client $kid just finished
+	    delete $self->{_children}->{$kid};
+	  }
+	# Take care of a race condition where client B finishes
+	# (causing another SIGCHLD) after client A finishes its
+	# waitpid (de-zombied), but before reaching its delete.
+	foreach (keys %{$self->{_children}})
+	  {
+	    # Quickly send a test signal to make sure all the
+	    # _children processes are still running.  If not,
+	    # remove it from the _children hash.
+	    delete $self->{_children}->{$_} unless kill 0, $_;
+	  }
+      };
 
     # Accept new connections and fork off new process to handle it.
     for (;;)
       {
 	$self->pre_accept_hook;
-
 	if (!$self->{_ctrl_sock}->opened &&
 	    !exists $self->{_hup})
 	  {
@@ -2512,6 +2587,17 @@ sub _be_daemon
 	      }
 
 	    warn "accept: $!" unless defined $sock;
+	  }
+
+	if ($self->concurrent_connections >= $self->{_max_clients})
+	  {
+	    $sock->print ("500 ".
+			  $self->_percent_substitutions ($self->{_max_clients_message}). 
+			  "\r\n");
+	    $sock->close;
+	    warn "Max connections $self->{_max_clients} reached!";
+	    $self->_log_line ("[Max connections $self->{_max_clients} reached]");
+	    next;
 	  }
 
 	# Fork off a process to handle this connection.
@@ -2542,7 +2628,17 @@ sub _be_daemon
 	    warn "fork: $!";
 	    sleep 5;		# Back off in case system is overloaded.
 	  }
+
+	# A child has been successfully spawned.
+	# So don't forget the kid's birthday!
+	$self->{_children}->{$pid} = time;
       }				# End of for (;;) loop in ftpd parent process.
+  }
+
+sub concurrent_connections
+  {
+    my $self = shift;
+    return scalar keys %{$self->{_children}};
   }
 
 # Open configuration file and prepare to read configuration.
@@ -2656,7 +2752,49 @@ sub _escape
     $_;
   }
 
-=pod
+=item $regex = $ftps->wildcard_to_regex ($wildcard)
+
+This is a general library function shared between many of
+the back-end database personalities. It converts a general
+wildcard (eg. *.c) into a regular expression (eg. ^.*\.c$ ).
+
+Thanks to: Terrence Monroe Brannon E<lt>terrence.brannon@oracle.comE<gt>.
+
+=cut
+
+sub wildcard_to_regex
+  {
+    my $self = shift;
+    my $wildcard = shift;
+
+    $wildcard =~ s,([^?*a-zA-Z0-9]),\\$1,g; # Escape punctuation.
+    $wildcard =~ s,\*,.*,g; # Turn * into .*
+    $wildcard =~ s,\?,.,g;  # Turn ? into .
+    $wildcard = "^$wildcard\$"; # Bracket it.
+
+    $wildcard;
+}
+
+=item $regex = $ftps->wildcard_to_sql_like ($wildcard)
+
+This is a general library function shared between many of
+the back-end database personalities. It converts a general
+wildcard (eg. *.c) into the strange wildcardish format
+used by SQL LIKE operator (eg. %.c).
+
+=cut
+
+sub wildcard_to_sql_like
+  {
+    my $self = shift;
+    my $wildcard = shift;
+
+    $wildcard =~ s/%/\\%/g;     # Escape any existing % and _.
+    $wildcard =~ s/_/\\_/g;
+    $wildcard =~ tr/*?/%_/;     # Translate to wierdo format.
+
+    $wildcard;
+}
 
 =item $ftps->reply ($code, $line, [$line, ...])
 
@@ -3124,7 +3262,7 @@ sub _percent_substitutions
     my $self = shift;
     local $_ = shift;
 
-    # See ftpd.conf file, section on ``welcome text'' for a list of
+    # See CONFIGURATION section on ``welcome text'' for a list of
     # the substitutions available.
     s/%C/$self->{cwd}->pathname/ge;
     s/%E/$self->{maintainer_email}/ge;
@@ -3135,6 +3273,7 @@ sub _percent_substitutions
     s/%T/localtime/ge;
     s/%U/$self->{user}/ge;
     s/%u/$self->{user}/ge;
+    s/%x/$self->{_max_clients}/ge;
     s/%%/%/g;
 
     return $_;
@@ -3864,6 +4003,15 @@ sub _RNFR_command
 	return;
       }
 
+    # Access control.
+    unless ($self->_eval_rule ("rename rule",
+			       $dirh->pathname . $filename,
+			       $filename, $dirh->pathname))
+      {
+	$self->reply (550, "RNFR command denied by server configuration.");
+	return;
+      }
+
     # Store the file handle so we can complete the operation.
     $self->{_rename_fileh} = $fileh;
 
@@ -3885,6 +4033,21 @@ sub _RNTO_command
 
     # Get the directory name.
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
+
+    if (!$dirh)
+      {
+	$self->reply (550, "File or directory not found.");
+	return;
+      }
+
+    # Access control.
+    unless ($self->_eval_rule ("rename rule",
+			       $dirh->pathname . $filename,
+			       $filename, $dirh->pathname))
+      {
+	$self->reply (550, "RNTO command denied by server configuration.");
+	return;
+      }
 
     # Are we trying to overwrite a previously existing file?
     if (defined $fileh &&
@@ -3988,6 +4151,12 @@ sub _MKD_command
     my $rest = shift;
 
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
+
+    if (!$dirh)
+      {
+	$self->reply (550, "File or directory not found.");
+	return;
+      }
 
     if ($fileh)
       {
@@ -4441,13 +4610,15 @@ sub _SIZE_command
 	return;
       }
 
-    if ($self->{type} eq 'A')
+    if ($self->{type} eq 'A' && $fileh->can_read)
       {
 	# ASCII mode: we have to count the characters by hand.
-	$size = 0;
-	my $file = $fileh->open ("r");
-	$size++ while (defined ($file->getc));
-	$file->close;
+	if (my $file = $fileh->open ("r"))
+	  {
+	    $size = 0;
+	    $size++ while (defined ($file->getc));
+	    $file->close;
+	  }
       }
 
     $self->reply (213, "$size");
@@ -4854,7 +5025,6 @@ sub _MLST_command
 
 	($dirh, $fileh, $filename) = $self->_get ($rest);
 
-	# XXX There is a bug here: "MLST /" fails with 550 error.
 	unless ($fileh)
 	  {
 	    $self->reply (550, "File or directory not found.");
@@ -4864,7 +5034,7 @@ sub _MLST_command
 
     # Check access control.
     unless ($self->_eval_rule ("list rule",
-			       undef, undef, $fileh->dir->pathname))
+			       undef, undef, $fileh->pathname))
       {
 	$self->reply (550, "LIST command denied by server configuration.");
 	return;
@@ -5322,6 +5492,7 @@ sub _get
       {
 	$dirh = $self->root_directory_hook;
 	$path =~ s,^/+,,;
+	$path = "." if $path eq "";
       }
 
     # Parse the first elements of path until we find the appropriate
@@ -5329,7 +5500,7 @@ sub _get
     my @elems = split /\//, $path;
     my $filename = pop @elems;
 
-    unless ($filename)
+    unless (defined $filename && length $filename)
       {
 	return ();
       }

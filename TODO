@@ -1,4 +1,4 @@
-$Id: TODO,v 1.1 2001/02/08 14:38:24 rich Exp $
+$Id: TODO,v 1.5 2001/06/18 16:05:49 rbrown Exp $
 
 Benchmarking. Run http://www.kegel.com/dkftpbench/index.html against
 the server and optimize it according to the results. I don't expect
@@ -32,3 +32,5 @@ Implement EPRT and EPSV (see RFC 2428).
 
 Auto-compress files and directories on upload and download. Provide
 a hook to allow the range of compression functions to be increased.
+
+----------------------------------------------------------------------

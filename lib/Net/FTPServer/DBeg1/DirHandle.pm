@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.1 2001/02/08 14:38:48 rich Exp $
+# $Id: DirHandle.pm,v 1.4 2001/06/12 17:08:47 rbrown Exp $
 
 =pod
 
@@ -102,10 +102,10 @@ sub get
     my $filename = shift;
 
     # None of these cases should ever happen.
-    confess unless $filename;
-    confess if $filename =~ /\//;
-    confess if $filename eq "..";
-    confess if $filename eq ".";
+    confess "no filename" unless defined($filename) && length($filename);
+    confess "slash filename" if $filename =~ /\//;
+    confess ".. filename"    if $filename eq "..";
+    confess ". filename"     if $filename eq ".";
 
     # Search for the file first, since files are more common than dirs.
     my $sql = "select id, content from files where dir_id = ? and name = ?";
@@ -177,9 +177,7 @@ sub list
       {
         if ($wildcard ne "*")
           {
-            $wildcard =~ s/%/\\%/g;     # Escape any existing % and _.
-            $wildcard =~ s/_/\\_/g;
-            $wildcard =~ tr/*?/%_/;     # Translate to wierdo format.
+	    $wildcard = $self->{ftps}->wildcard_to_sql_like ($wildcard);
           }
         else
           {
@@ -261,9 +259,7 @@ sub list_status
       {
         if ($wildcard ne "*")
           {
-            $wildcard =~ s/%/\\%/g;     # Escape any existing % and _.
-            $wildcard =~ s/_/\\_/g;
-            $wildcard =~ tr/*?/%_/;     # Translate to wierdo format.
+	    $wildcard = $self->{ftps}->wildcard_to_sql_like ($wildcard);
           }
         else
           {

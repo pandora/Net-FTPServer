@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.2 2001/02/18 11:08:14 rich Exp $
+# $Id: Makefile.PL,v 1.4 2001/06/19 17:36:01 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -64,11 +64,6 @@ WriteMakefile(
 	       dist => 'Net-FTPServer.spec',
 	       #'Net-FTPServer.spec' => '$(VERSION_FROM)',
 	       #Makefile => '$(VERSION_FROM)',
-	      },
-
-	      HTMLLIBPODS =>
-	      {
-	       "lib/Net/FTPServer.pm" => "doc/Net::FTPServer.html",
 	      },
 	     );
 
