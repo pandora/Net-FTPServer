@@ -1,4 +1,4 @@
-$Id: README,v 1.48 2001/10/19 14:07:04 rich Exp $
+$Id: README,v 1.53 2001/10/28 16:31:10 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,15 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.102: EXPERIMENTAL RELEASE. Better handling of CPAN version
+numbers in subclasses. Load Digest::MD5 early so it works with chroot
+(thanks Peter Gordon for pointing out the bug). Added quit_hook (for
+Björn Großmann). Don't hard-code path to Perl interpreter in the
+scripts. Added roadmap. Added "class" directive. Advanced command
+filtering ("restrict command" directives). Ordinary and advanced
+command filtering no longer log you out. They just send back an error
+message. Allow limits to be set to -1 to indicate no limit.
 
 Version 1.101: EXPERIMENTAL RELEASE. post_command_hook now gets the
 command as an argument. Removed can_* functions from backends.  In

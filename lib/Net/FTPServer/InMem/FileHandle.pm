@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.3 2001/10/10 10:05:37 rich Exp $
+# $Id: FileHandle.pm,v 1.5 2001/10/24 14:40:07 rich Exp $
 
 =pod
 
@@ -43,10 +42,8 @@ package Net::FTPServer::InMem::FileHandle;
 
 use strict;
 
-# Some magic which is required by CPAN. This is not the real version
-# number. If you want that, have a look at FTPServer::VERSION.
 use vars qw($VERSION);
-$VERSION = '1.0';
+( $VERSION ) = '$Revision: 1.5 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Carp qw(croak confess);
 use IO::Scalar;

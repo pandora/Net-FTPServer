@@ -19,6 +19,7 @@ doc/eg1-psql63.sql
 doc/eg1.sql
 doc/press1.0.txt
 doc/rfcs.txt
+doc/roadmap-1.2.txt
 doc/safesignals.txt
 ftpd
 ftpd.conf
@@ -72,6 +73,7 @@ t/270anoncheckrfcok.t
 t/270anoncheckrfc.t
 t/270anonchecktrivialok.t
 t/270anonchecktrivial.t
+t/280cmdfilter.t
 t/300cmdline.t
 t/310defaults.t
 t/320config.t

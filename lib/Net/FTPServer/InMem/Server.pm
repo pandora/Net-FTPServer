@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.1 2001/02/18 11:08:18 rich Exp $
+# $Id: Server.pm,v 1.3 2001/10/24 14:40:07 rich Exp $
 
 =pod
 
@@ -50,7 +49,7 @@ package Net::FTPServer::InMem::Server;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = "0.1.0";
+( $VERSION ) = '$Revision: 1.3 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer;
 use Net::FTPServer::InMem::FileHandle;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350generatorlist.t,v 1.2 2001/09/17 16:25:55 rich Exp $
+# $Id: 350generatorlist.t,v 1.3 2001/10/28 16:31:15 rich Exp $
 
 use strict;
 use Test;
@@ -27,9 +27,9 @@ unless ($pid) {			# Child process (the server).
   close OUTFD1;
   my $ftps = Net::FTPServer::InMem::Server->run
     (['--test', '-d', '-C', '/dev/null',
-      '-o', 'limit memory=150000',
-      '-o', 'limit nr processes=40',
-      '-o', 'limit nr files=40']);
+      '-o', 'limit memory=-1',
+      '-o', 'limit nr processes=-1',
+      '-o', 'limit nr files=-1']);
   exit;
 }
 

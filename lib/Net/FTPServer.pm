@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.165 2001/10/19 07:48:20 rich Exp $
+# $Id: FTPServer.pm,v 1.171 2001/10/28 16:31:10 rich Exp $
 
 =pod
 
@@ -68,12 +67,11 @@ to C</etc/ftpd.conf>:
 
   install -c -o root -g root -m 0644 ftpd.conf /etc/
 
-Two start-up scripts are supplied with the ftp server,
-to run it in two common configurations: either as a full
-FTP server or as an anonymous-only read-only FTP server. The
-scripts are C<ftpd> and C<ro-ftpd>. You may need to
-edit these scripts if Perl is not stored in the standard
-place on your system (the default path is C</usr/bin/perl>).
+Two start-up scripts are supplied with the ftp server, to run it in
+two common configurations: either as a full FTP server or as an
+anonymous-only read-only FTP server. The scripts are C<ftpd> and
+C<ro-ftpd>. You may need to edit these scripts if the Perl interpreter
+cannot be found on the current C<$PATH>.
 
 You should copy the appropriate script, either C<ftpd> or
 C<ro-ftpd> to a suitable place (for example: C</usr/sbin/in.ftpd>).
@@ -234,6 +232,51 @@ Default: root@I<hostname>
 
 Example: C<maintainer email: bob@example.com>
 
+=item class
+
+Assign users into classes. One or more C<class> directives can be
+added to the configuration file to aggregate individual users into
+larger groups of users called classes.
+
+By default all anonymous users are in class C<anonymous> and every
+other user is in class C<users>.
+
+The configuration file can contain zero or more C<class>
+directives. The format of the class directive is either:
+
+ class: CLASSNAME USERNAME[,USERNAME[,...]]
+
+or:
+
+ class: CLASSNAME { perl code ... }
+
+Examples of the first form are:
+
+ class: staff rich
+ class: students ann,mary,pete
+
+User C<rich> will be placed into class C<staff>, and users C<ann>,
+C<mary> and C<pete> will be placed into class C<students>.
+
+Examples of the second form are:
+
+ class: family { /jones$/ }
+ class: friends { $_ ne "jeff" }
+
+Any username ending in C<jones> (eg. C<rjones>, C<timjones>) will be
+in class C<family>. Any other user except C<jeff> will be placed in
+class C<friends>. Note that the Perl code must be surrounded by
+C<{...}> and must return a boolean true or false value. The username
+is available as C<$_>. The Perl code is arbitrary: it might, for
+example, use an external file or database lookup in order to work out
+if a user belongs to a class.
+
+C<class> directives are evaluated in the order in which they appear in
+the configuration file until one matches the username.
+
+Default: Anonymous users are assigned to class C<anonymous> and
+everyone else is assigned to class C<users>.
+
 =item timeout
 
 Timeout on control connection. If a command has not been
@@ -260,11 +303,16 @@ attacks against the FTP server.
  limit nr processes    10   (none)  Number of processes
  limit nr files        20   (none)  Number of open files
 
-Example: 
+To instruct the server I<not> to limit a particular resource, set the
+limit to C<-1>.
+
+Example:
 
  limit memory:       32768
  limit nr processes:    20
  limit nr files:        40
+
+ limit nr processes:    -1
 
 =item max clients
 
@@ -689,6 +737,7 @@ You can use the following variables from the Perl:
  $hostname      Resolved hostname of the client [1]
  $ip            IP address of the client
  $user          User name [2]
+ $class         Class of user [2]
  $user_is_anonymous  True if the user is an anonymous user [2]
  $pathname      Full pathname of the file being affected [2]
  $filename      Filename of the file being affected [2,3]
@@ -759,12 +808,12 @@ Examples:
  (a) Do not allow anyone to retrieve ``/etc/*'' or any file anywhere
      called ``.htaccess'':
 
-     retrieve rule: $dirname !~ m|^/etc/| && $filename ne ".htaccess"
+     retrieve rule: $dirname !~ m(^/etc/) && $filename ne ".htaccess"
 
  (b) Only allow anonymous users to retrieve files from under the
      ``/pub'' directory.
 
-     retrieve rule: !$user_is_anonymous || $dirname =~ m|^/pub/|
+     retrieve rule: !$user_is_anonymous || $dirname =~ m(^/pub/)
 
 Store rule. This rule controls who may store (upload) files.
 
@@ -779,12 +828,12 @@ Examples:
  (a) Only allow users to upload files to the ``/incoming''
      directory.
 
-     store rule: $dirname =~ m|^/incoming/|
+     store rule: $dirname =~ m(^/incoming/)
 
  (b) Anonymous users can only upload files to ``/incoming''
      directory.
 
-     store rule: !$user_is_anonymous || $dirname =~ m|^/incoming/|
+     store rule: !$user_is_anonymous || $dirname =~ m(^/incoming/)
 
  (c) Disable file upload.
 
@@ -805,7 +854,7 @@ directory.
 
 Default: 1
 
-Example: C<list rule: $dirname =~ m|^/pub/|>
+Example: C<list rule: $dirname =~ m(^/pub/)>
 
 Mkdir rule. This rule controls who may create a subdirectory.
 
@@ -821,7 +870,7 @@ Rename rule. This rule controls which files or directories can be renamed.
 
 Default: 1
 
-Example: C<rename rule: $pathname !~ m|/.htaccess$|>
+Example: C<rename rule: $pathname !~ m(/.htaccess$)>
 
 =item chdir message file
 
@@ -1186,6 +1235,47 @@ Default: (no filter)
 
 Example: C<command filter: ^[A-Za-z0-9 /]+$>
 
+=item restrict command
+
+Advanced command filtering. The C<restrict command> directive takes
+the form:
+
+ restrict command: "COMMAND" perl code ...
+
+If the user tries to execute C<COMMAND>, then the C<perl code> is
+evaluated first. If it evaluates to true, then the command is allowed
+to proceed. Otherwise the server reports an error back to the user and
+does not execute the command.
+
+Note that the C<COMMAND> is the FTP protocol command, which is not
+necessarily the same as the command which users will type in on their
+FTP clients. Please read RFC 959 to see some of the more common FTP
+protocol commands.
+
+The Perl code has the same variables available to it as for access
+control rules (eg. C<$user>, C<$class>, C<$ip>, etc.). The code
+I<must not> alter the global C<$_> variable (which contains the
+complete command).
+
+Default: all commands are allowed by default
+
+Examples:
+
+Only allow users in the class C<nukers> to delete files and
+directories:
+
+ restrict command: "DELE" $class eq "nukers"
+ restrict command: "RMD" $class eq "nukers"
+
+Only allow staff to use the C<SITE WHO> command:
+
+ restrict command: "SITE WHO" $class eq "staff"
+
+Only allow C<rich> to run the C<SITE EXEC> command:
+
+ allow site exec command: 1
+ restrict command: "SITE EXEC" $user eq "rich"
+
 =item command wait
 
 Go slow. If set, then the server will sleep for this many seconds
@@ -1508,7 +1598,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.165 2001/10/19 07:48:20 rich Exp $
+  200-$Id: FTPServer.pm,v 1.171 2001/10/28 16:31:10 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1875,7 +1965,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.101';
+$VERSION = '1.102';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -1918,6 +2008,7 @@ BEGIN {
 #eval "use Archive::Tar;";
 eval "use Archive::Zip;";
 eval "use BSD::Resource;";
+eval "use Digest::MD5;";
 eval "use File::Sync;";
 
 # Load the signal handling code.
@@ -2319,8 +2410,8 @@ sub run
 	if ($self->config ("require resolved addresses") && !$peerhostname)
 	  {
 	    $self->log ("err",
-			   "cannot resolve address for connection from " .
-			   "$peeraddrstring:$peerport");
+			"cannot resolve address for connection from " .
+			"$peeraddrstring:$peerport");
 	    exit 0;
 	  }
       }
@@ -2420,13 +2511,13 @@ sub run
     if ($r == 0)
       {
 	my $limit = 1024 * ($self->config ("limit memory") || 16384);
-	$self->_set_rlimit ("RLIMIT_DATA", $limit);
+	$self->_set_rlimit ("RLIMIT_DATA", $limit) if $limit >= 0;
 
 	$limit = $self->config ("limit nr processes") || 10;
-	$self->_set_rlimit ("RLIMIT_NPROC", $limit);
+	$self->_set_rlimit ("RLIMIT_NPROC", $limit) if $limit >= 0;
 
 	$limit = $self->config ("limit nr files") || 20;
-	$self->_set_rlimit ("RLIMIT_NOFILE", $limit);
+	$self->_set_rlimit ("RLIMIT_NOFILE", $limit) if $limit >= 0;
       }
 
     unless ($self->{_test_mode})
@@ -2560,6 +2651,27 @@ sub run
     # Get command filter, if set.
     my $cmd_filter = $self->config ("command filter");
 
+    # Get restrict commands, if set, and parse them into a simpler format.
+    my @restrict_commands = $self->config ("restrict command");
+
+    foreach (@restrict_commands)
+      {
+	unless (/^"([a-zA-Z\s]+)"\s+(.*)/)
+	  {
+	    die "bad restrict command directive: restrict command: $_";
+	  }
+
+	my $pattern = uc $1;
+	my $code = $2;
+
+	# The pattern is something like "SITE WHO". Turn this into
+	# a real regular expression "^SITE\s+WHO\b".
+	$pattern =~ s/\s+/\\s+/g;
+	$pattern = "^$pattern\\b";
+
+	$_ = { pattern => $pattern, code => $code };
+      }
+
     # Command the commands permitted when not authenticated.
     my %no_authentication_commands = ();
 
@@ -2577,6 +2689,7 @@ sub run
       }
 
     # Start reading commands from the client.
+  COMMAND:
     for (;;)
       {
 	# Pre-command hook.
@@ -2630,12 +2743,43 @@ sub run
 	next if $r == -1;
 
 	# Command filter.
-	if ($r == 0 && defined $cmd_filter)
+	if ($r == 0)
 	  {
-	    unless ($_ =~ m/$cmd_filter/)
+	    if (defined $cmd_filter)
 	      {
-		$self->reply (421, "Command does not match command filter.");
-		exit 0;
+		unless ($_ =~ m/$cmd_filter/)
+		  {
+		    $self->reply (500,
+				  "Command does not match command filter.");
+		    next;
+		  }
+	      }
+
+	    foreach my $rc (@restrict_commands)
+	      {
+		if ($_ =~ /$rc->{pattern}/i)
+		  {
+		    # Set up the variables.
+		    my $hostname = $self->{peerhostname};
+		    my $ip = $self->{peeraddrstring};
+		    my $user = $self->{user};
+		    my $class = $self->{class};
+		    my $user_is_anonymous = $self->{user_is_anonymous};
+		    my $type = $self->{type};
+		    my $form = $self->{form};
+		    my $mode = $self->{mode};
+		    my $stru = $self->{stru};
+
+		    my $rv = eval $rc->{code};
+		    die if $@;
+
+		    unless ($rv)
+		      {
+			$self->reply (500,
+				  "Command restricted by site administrator.");
+			next COMMAND;
+		      }
+		  }
 	      }
 	  }
 
@@ -2688,6 +2832,8 @@ sub run
 	# Write out any xferlog that may have built up from the command
 	$self->xfer_flush if $self->{_xferlog};
       }
+
+    $self->quit_hook ();
 
     unless ($self->{_test_mode})
       {
@@ -4125,6 +4271,10 @@ sub _PASS_command
     # Login was officially OK.
     $self->{authenticated} = 1;
 
+    # Compute user's class.
+    $self->{class} =
+      $self->_username_to_class ($rest, $self->{user_is_anonymous});
+
     # Compute home directory. We may need it when we display the
     # welcome message.
     unless ($self->{user_is_anonymous})
@@ -4240,9 +4390,59 @@ sub _PASS_command
     else
       {
 	$self->log ("warning",
-		       "no home directory for user: $self->{user}");
+		    "no home directory for user: $self->{user}");
       }
 
+  }
+
+# Convert a username to a class by using the class directives
+# in the configuration file.
+
+sub _username_to_class
+  {
+    my $self = shift;
+    my $username = shift;
+    my $user_is_anonymous = shift;
+
+    my @classes = $self->config ("class");
+
+    local $_;
+
+    foreach my $class (@classes)
+      {
+	# class: CLASSNAME { perl code ... }
+	if ($class =~ /^(\w+)\s+\{(.*)\}\s*$/)
+	  {
+	    my $classname = $1;
+	    my $code = $2;
+
+	    $_ = $username;
+
+	    my $rv = eval $code;
+	    die if $@;
+
+	    return $classname if $rv;
+	  }
+	# class: CLASSNAME USERNAME[,USERNAME[,...]]
+	elsif ($class =~ /^(\w*)\s+(.*)/)
+	  {
+	    my $classname = $1;
+	    my @users = split /[,\s]+/, $2;
+
+	    foreach (@users)
+	      {
+		return $classname if $_ eq $username;
+	      }
+	  }
+	else
+	  {
+	    die "bad class directive: class: $_";
+	  }
+      }
+
+    # Default cases.
+    return "anonymous" if $user_is_anonymous;
+    return "users";
   }
 
 sub _percent_substitutions
@@ -5654,6 +5854,12 @@ sub _SITE_CHECKSUM_command
     my $cmd = shift;
     my $rest = shift;
 
+    unless (exists $INC{"Digest/MD5.pm"})
+      {
+	$self->reply (500, "SITE CHECKSUM is not supported on this server.");
+	return;
+      }
+
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
 
     unless ($fileh)
@@ -5678,10 +5884,7 @@ sub _SITE_CHECKSUM_command
 	return;
       }
 
-    # Don't "use" this file, because we want it to be optional.
-    require Digest::MD5;
-
-    my $ctx = Digest::MD5->new;
+    my $ctx = "Digest::MD5"->new;
     $ctx->addfile ($file);	# IO::Handles are also filehandle globs.
 
     $self->reply (200, $ctx->hexdigest . " " . $filename);
@@ -6617,6 +6820,7 @@ sub _eval_rule
     my $hostname = $self->{peerhostname};
     my $ip = $self->{peeraddrstring};
     my $user = $self->{user};
+    my $class = $self->{class};
     my $user_is_anonymous = $self->{user_is_anonymous};
     my $type = $self->{type};
     my $form = $self->{form};
@@ -7460,6 +7664,38 @@ Status: optional.
 sub system_error_hook
   {
     return "$!";
+  }
+
+=pod
+
+=item $self->quit_hook
+
+Hook: This hook is called after the user has C<QUIT> or if the FTP
+client cleanly drops the connection. Please note, however, that this
+hook is I<not> called whenever the FTP server exits, particularly in
+cases such as:
+
+ * The FTP server, the Perl interpreter or the personality
+   crashes unexpectedly.
+ * The user fails to log in.
+ * The FTP server detects a fatal error, sends a "421" error code,
+   and abruptly exits.
+ * Idle timeouts.
+ * Access control violations.
+ * Manual server shutdowns.
+
+Unfortunately it is not in general easily possible to catch these
+cases and cleanly call a hook. If your personality needs to do cleanup
+in all cases, then it is probably better to use an C<END> block inside
+your Server object (see L<perlmod(3)>). Even using an C<END> block
+cannot catch cases where the Perl interpreter crashes.
+
+Status: optional.
+
+=cut
+
+sub quit_hook
+  {
   }
 
 #----------------------------------------------------------------------
