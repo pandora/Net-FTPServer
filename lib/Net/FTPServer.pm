@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.126 2001/08/01 09:19:22 rich Exp $
+# $Id: FTPServer.pm,v 1.130 2001/08/02 22:53:03 rbrown Exp $
 
 =pod
 
@@ -1430,7 +1430,7 @@ with different back-end personalities (in particular when
     # Close the file handle.
     unless ($file->close)
       {
-	$self->reply (550, "Close failed: $!");
+	$self->reply (550, "Close failed: ".$self->system_error_hook());
 	return;
       }
 
@@ -1450,7 +1450,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.126 2001/08/01 09:19:22 rich Exp $
+  200-$Id: FTPServer.pm,v 1.130 2001/08/02 22:53:03 rbrown Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1740,7 +1740,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.025';
+$VERSION = '1.026';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -1867,6 +1867,7 @@ sub run
 
     # Save the hostname.
     $self->{hostname} = hostname;
+    $self->{hostname} = $1 if $self->{hostname} =~ /^([\w\-\.]+)$/;
 
     # Construct a table of commands to subroutines.
     $self->{command_table} = {};
@@ -1942,10 +1943,14 @@ sub run
     # that file. If error log is not set, then we use a hack which
     # directs those messages to syslog.
 
-    my $error_log = $self->config ("error log");
-    if ($error_log)
+    if (defined $self->config ("error log"))
       {
-	open STDERR, ">>$error_log" or die "$error_log: $!";
+	my $log_file = $self->config ("error log");
+
+	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
+	$log_file =~ s/\$(\w+)/$self->{$1}/g;
+	$self->{_error_file} = $log_file;
+	open STDERR, ">>$log_file" or die "cannot append: $log_file: $!";
       }
     else
       {
@@ -1970,12 +1975,6 @@ sub run
       $self->log ("info", "client closed connection abruptly") if $self;
       exit;
     };
-    $SIG{TERM} = sub {
-      $self->log ("info", "exiting on TERM signal");
-      $self->reply (421, "Manual shutdown from server");
-      $self->_log_line ("[TERM RECEIVED]");
-      exit;
-    };
     $SIG{INT} = sub {
       $self->log ("info", "exiting on keyboard INT signal");
       exit;
@@ -1998,14 +1997,7 @@ sub run
 
 	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
 	$log_file =~ s/\$(\w+)/$self->{$1}/g;
-	if ($log_file =~ m%^([/\w\-\.]+)$%)
-	  {
-	    $self->{_log_file} = $log_file = $1;
-	  }
-	else
-	  {
-	    die "Refusing to create weird looking client log file: $log_file";
-	  }
+	$self->{_log_file} = $log_file;
 
 	my $io = new IO::File $log_file, "a";
 	if (defined $io)
@@ -2026,14 +2018,7 @@ sub run
 
 	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
 	$log_file =~ s/\$(\w+)/$self->{$1}/g;
-	if ($log_file =~ m%^([/\w\-\.]+)$%)
-	  {
-	    $self->{_xfer_file} = $log_file = $1;
-	  }
-	else
-	  {
-	    die "Refusing to create weird looking xfer log file: $log_file";
-	  }
+	$self->{_xfer_file} = $log_file;
 
 	my $io = new IO::File $log_file, "a";
 	if (defined $io)
@@ -2551,6 +2536,12 @@ sub _check_signals
 	$sig &= ~(1 << &SIGHUP);
       }
 
+    if ($sig & (1 << &SIGTERM))
+      {
+	$self->_handle_sigterm;
+	$sig &= ~(1 << &SIGTERM);
+      }
+
     if ($sig)
       {
 	warn sprintf ("unprocessed signals: %032b", $sig);
@@ -2593,9 +2584,20 @@ sub _handle_sighup
 
     # Print a message to syslog.
     $self->log ("info", "received SIGHUP, reloading");
+    $self->_log_line ("[DAEMON Reloading]");
 
     # Restart self.
     exec ($0, @ARGV);
+  }
+
+# Handle SIGTERM signal synchronously in the parent process.
+sub _handle_sigterm
+  {
+    my $self = shift;
+
+    $self->log ("info", "shutting down daemon");
+    $self->_log_line ("[DAEMON Shutdown]");
+    exit;
   }
 
 # Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
@@ -2889,6 +2891,13 @@ sub _be_daemon
 		# SIGHUP in the child process exits immediately.
 		$SIG{HUP} = sub {
 		  $self->log ("info", "exiting on HUP signal");
+		  exit;
+		};
+
+		$SIG{TERM} = sub {
+		  $self->log ("info", "exiting on TERM signal");
+		  $self->reply (421, "Manual shutdown from server");
+		  $self->_log_line ("[TERM RECEIVED]");
 		  exit;
 		};
 
@@ -4272,7 +4281,7 @@ sub _RETR_command
 		unless (defined $w)
 		  {
 		    # There was an error.
-		    my $reason = $!;
+		    my $reason = $self->system_error_hook();
 
 		    $sock->close;
 		    $file->close;
@@ -4299,7 +4308,7 @@ sub _RETR_command
 	unless (defined $r)
 	  {
 	    # There was an error.
-	    my $reason = $!;
+	    my $reason = $self->system_error_hook();
 
 	    $sock->close;
 	    $file->close;
@@ -4357,7 +4366,8 @@ sub _RETR_command
 
     unless ($sock->close && $file->close)
       {
-	$self->reply (550, "File retrieval error: $!");
+	my $reason = $self->system_error_hook();
+	$self->reply (550, "File retrieval error: $reason");
 	return;
       }
 
@@ -6350,7 +6360,7 @@ sub _store
 		unless (defined $w)
 		  {
 		    # There was an error.
-		    my $reason = $!;
+		    my $reason = $self->system_error_hook();
 
 		    $sock->close;
 		    $file->close;
@@ -6367,7 +6377,7 @@ sub _store
 	unless (defined $r)
 	  {
 	    # There was an error.
-	    my $reason = $!;
+	    my $reason = $self->system_error_hook();
 
 	    $sock->close;
 	    $file->close;
@@ -6406,7 +6416,7 @@ sub _store
 	    my $w = $file->print ("$_\n");
 	    unless (defined $w)
 	      {
-		my $reason = $!;
+		my $reason = $self->system_error_hook();
 		# There was an error.
 		$sock->close;
 		$file->close;
@@ -6420,7 +6430,8 @@ sub _store
 
     unless ($sock->close && $file->close)
       {
-	$self->reply (550, "File retrieval error: $!");
+	my $reason = $self->system_error_hook();
+	$self->reply (550, "File retrieval error: $reason");
 	return;
       }
 
@@ -6707,6 +6718,24 @@ Status: optional.
 
 sub post_command_hook
   {
+  }
+
+=pod
+
+=item $self->system_error_hook
+
+Hook: This hook is used instead of $! when what looks like a system error
+occurs during a virtual filesystem handle method.  It can be used by the
+virtual filesystem to provide explanatory text for a virtual filesystem 
+failure which did not actually set the real $!.
+
+Status: optional.
+
+=cut
+
+sub system_error_hook
+  {
+    return "$!";
   }
 
 1 # So that the require or use succeeds.

@@ -32,9 +32,11 @@ CODE:
 	if (sigaction (SIGCHLD, &sa, NULL) == -1)
 		croak ("sigaction: errno = %d", errno);
 	sa.sa_flags = SA_RESTART;
-	if (sigaction (SIGURG, &sa, NULL) == -1)
+	if (sigaction (SIGURG,  &sa, NULL) == -1)
 		croak ("sigaction: errno = %d", errno);
-	if (sigaction (SIGHUP, &sa, NULL) == -1)
+	if (sigaction (SIGHUP,  &sa, NULL) == -1)
+		croak ("sigaction: errno = %d", errno);
+	if (sigaction (SIGTERM, &sa, NULL) == -1)
 		croak ("sigaction: errno = %d", errno);
 
 unsigned
@@ -74,5 +76,12 @@ int
 SIGHUP ()
 CODE:
 	RETVAL = SIGHUP;
+OUTPUT:
+	RETVAL
+
+int
+SIGTERM ()
+CODE:
+	RETVAL = SIGTERM;
 OUTPUT:
 	RETVAL

@@ -1,4 +1,4 @@
-$Id: README,v 1.23 2001/08/01 09:19:22 rich Exp $
+$Id: README,v 1.24 2001/08/01 11:27:53 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -63,6 +63,15 @@ Send feedback, bug reports, questions and patches to the author,
 Richard Jones <rich@annexia.org>.
 
 CHANGE LOG
+
+Version 1.026: New optional hook: system_error_hook added to allow
+backends to provide more error information than is provided by the
+normal "$!" (thanks to Keith Turner for this patch). Various changes
+to error log (SIGHUP now functions correctly for non-privileged
+backends) [Rob]. Allow error log to contain variable hostname [Rob].
+Safer untainting for log filenames [Rob]. Re-add DAEMON message
+logging code [Rob]. SIGTERM is handled safely and synchronously
+[Rob].
 
 Version 1.025: Changed version numbering system slightly from 1.0.25
 to 1.025 to allow version numbers to be compared [Rob]. Optimizations
