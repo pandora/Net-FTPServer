@@ -2,6 +2,13 @@ Implementation of "safe signals" in Net::FTPServer
 --------------------------------------------------
 Richard Jones, 31st July 2001.
 
+[Note added 19th July 2002 by RWMJ:
+
+ Perl 5.8.0 has been released, and is expected to become widely
+ used soon. The code has now been modified so it switches between
+ using my XS safe signals code and pure Perl depending on whether
+ the Perl version in use is < or >= 5.7.2.]
+
 1. Background - the Problem
 ---------------------------
 

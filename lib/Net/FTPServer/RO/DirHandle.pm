@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.11 2001/10/24 14:40:07 rich Exp $
+# $Id: DirHandle.pm,v 1.12 2002/12/28 02:31:05 rbrown Exp $
 
 =pod
 
@@ -43,7 +43,7 @@ package Net::FTPServer::RO::DirHandle;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.11 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.12 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use IO::Dir;
 use Carp qw(confess);
@@ -155,12 +155,9 @@ sub list
 
     foreach $file (@filenames)
       {
-	my $handle
-	  = -d "$self->{_pathname}$file"
-	    ? Net::FTPServer::RO::DirHandle->new ($self->{ftps}, $self->{_pathname} . $file . "/")
-	    : Net::FTPServer::RO::FileHandle->new ($self->{ftps}, $self->{_pathname} . $file);
-
-	push @array, [ $file, $handle ];
+        if (my $handle = $self->get($file)) {
+          push @array, [ $file, $handle ];
+        }
       }
 
     return \@array;

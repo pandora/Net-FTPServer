@@ -90,3 +90,4 @@ t/330perl.t
 t/350filters.t
 t/350generatorlist.t
 t/350generatorzip.t
+t/400sighup.t

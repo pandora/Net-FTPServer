@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.21 2002/05/15 14:15:39 rich Exp $
+# $Id: Makefile.PL,v 1.22 2002/07/19 17:28:47 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -135,12 +135,12 @@ foreach (sort keys %modules)
 	      "package.\n\n";
 	  }
 
-	sleep 1;
+	sleep 1 unless $ENV{NET_FTPSERVER_NO_SLEEP};
 
 	if (exists $modules{$_}{message})
 	  {
 	    print "*** ", $modules{$_}{message}, "\n";
-	    sleep 5;
+	    sleep 5 unless $ENV{NET_FTPSERVER_NO_SLEEP};
 	  }
 
       }
@@ -158,7 +158,7 @@ if ($missing_modules)
 Obtain missing modules from CPAN [http://www.cpan.org/].
 
 EOT
-    sleep 2;
+    sleep 2 unless $ENV{NET_FTPSERVER_NO_SLEEP};
   }
 
 if ($missing_required_modules)
@@ -182,45 +182,61 @@ EOT
     exit 1;
   }
 
-WriteMakefile(
-	      NAME => "Net::FTPServer",
-	      VERSION_FROM => "lib/Net/FTPServer.pm",
+my @args = (
+	    NAME => "Net::FTPServer",
+	    VERSION_FROM => "lib/Net/FTPServer.pm",
 
-	      # These are for the XS code.
-	      DEFINE => '',
-	      LIBS => [''],
-	      INC => '',
+	    # Install start-up scripts under /usr/sbin.
+	    EXE_FILES => [ 'bin/dbeg1-ftpd.pl',
+			   'bin/ftpd.pl',
+			   'bin/inmem-ftpd.pl',
+			   'bin/ro-ftpd.pl' ],
+	    INSTALLSCRIPT => "/usr/sbin",
 
-	      # Install start-up scripts under /usr/sbin.
-	      EXE_FILES => [ 'bin/dbeg1-ftpd.pl',
-			     'bin/ftpd.pl',
-			     'bin/inmem-ftpd.pl',
-			     'bin/ro-ftpd.pl' ],
-	      INSTALLSCRIPT => "/usr/sbin",
+	    dist =>
+	    {
+	     COMPRESS => 'gzip --force --best',
+	     PREOP => 'cp Net-FTPServer.spec $(DISTVNAME)',
+	    },
 
-	      dist =>
-	      {
-	       COMPRESS => 'gzip --force --best',
-	       PREOP => 'cp Net-FTPServer.spec $(DISTVNAME)',
-	      },
+	    clean =>
+	    {
+	     FILES => '*.bak *~',
+	    },
 
-	      clean =>
-	      {
-	       FILES => '*.bak *~',
-	      },
+	    realclean =>
+	    {
+	     FILES => 'Net-FTPServer.spec',
+	    },
 
-	      realclean =>
-	      {
-	       FILES => 'Net-FTPServer.spec',
-	      },
+	    depend =>
+	    {
+	     dist => 'Net-FTPServer.spec',
+	     #'Net-FTPServer.spec' => "lib/Net/FTPServer.pm",
+	     #Makefile => "lib/Net/FTPServer.pm",
+	    },
+	   );
 
-	      depend =>
-	      {
-	       dist => 'Net-FTPServer.spec',
-	       #'Net-FTPServer.spec' => "lib/Net/FTPServer.pm",
-	       #Makefile => "lib/Net/FTPServer.pm",
-	      },
-	     );
+# The XS code for safe signals isn't required on Perl >= 5.7.2.
+if ($] < 5.00702)
+  {
+    push @args, (
+		 DEFINE => '',
+		 LIBS => [''],
+		 INC => '',
+		 XS => { 'FTPServer.xs' => 'FTPServer.c' },
+		 C => [ 'FTPServer.c' ],
+		);
+  }
+else
+  {
+    push @args, (
+		 XS => { },
+		 C => [ ],
+		);
+  }
+
+WriteMakefile @args;
 
 package MY;
 

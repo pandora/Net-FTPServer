@@ -1,9 +1,9 @@
-$Id: README,v 1.68 2002/07/05 14:54:21 rich Exp $
+$Id: README,v 1.74 2002/12/28 14:07:50 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
 
-Copyright (C) 2000 Biblio@Tech Ltd.,	Copyright (C) 2000-2001
+Copyright (C) 2000 Biblio@Tech Ltd.,	Copyright (C) 2000-2002
 Unit 2-3, 50 Carnwath Road, London,	Richard Jones <rich@annexia.org>
 SW6 3EG, UK.				and other contributors.
 
@@ -80,6 +80,23 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.112: EXPERIMENTAL RELEASE. Avoids sleeping in Makefile.PL if
+you set NET_FTPSERVER_NO_SLEEP=1. If Perl version >= 5.7.2, then the
+XS-based safe signals code is disabled. These later Perl versions
+include safe signals, so it is not needed. Note to package
+maintainers: if using Perl >= 5.7.2, then Net::FTPServer is pure Perl
+code, no C. Allow non-alpha characters in SITE commands (feature
+requested by Brian Freeman). Luis Mun\~oz fixed a problem with
+removing directories on Darwin / Mac OS X. Luis also added the 'chdir
+rule' which allows finer control over what directories a user may
+change into. Allow the build to work if there is a different version
+of the server installed.  Changes by Rob Brown: 1) Reduce redundant
+code.  2) Allow easier overrides for Full and RO personalities.  (That
+whole "sub list" doesn't need to be copied.)  3) Avoid spewing
+warnings to the logs and showing garbage to the client for a race
+condition where the node has been removed between the time of the
+IO::Dir read and the time of the @array stashing.
 
 Version 1.111: EXPERIMENTAL RELEASE. Fixed a critical memory
 corruption error. Fixed and removed a faulty call to 'fcntl' which

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.187 2002/07/05 14:54:21 rich Exp $
+# $Id: FTPServer.pm,v 1.194 2002/11/21 05:28:53 rbrown Exp $
 
 =pod
 
@@ -833,8 +833,10 @@ Example: C<ident timeout: 10>
 
 =item rename rule
 
+=item chdir rule
+
 Access control rules.
- 
+
 Access control rules are all specified as short snippets of
 Perl script. This allows the maximum configurability -- you
 can express just about any rules you want -- but at the price
@@ -979,6 +981,11 @@ Rename rule. This rule controls which files or directories can be renamed.
 Default: 1
 
 Example: C<rename rule: $pathname !~ m(/.htaccess$)>
+
+Chdir rule. This rule controls which directories are acceptable to a
+CWD or CDUP.
+
+Example: C<chdir rule: $pathname !~ m/private/>
 
 =item chdir message file
 
@@ -1706,7 +1713,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.187 2002/07/05 14:54:21 rich Exp $
+  200-$Id: FTPServer.pm,v 1.194 2002/11/21 05:28:53 rbrown Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1893,7 +1900,7 @@ IP-based virtual hosting works:
    client connected to and reverses the name.
  * If:
      the IP address matches one of the "ip:" declarations
-     in any of the "Host" sections, 
+     in any of the "Host" sections,
    or:
      there is a reversal for the name, and the name
      matches one of the "Host" sections in the configuration
@@ -2073,8 +2080,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.111';
-$RELEASE = 4;
+$VERSION = '1.112';
+$RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
 require DynaLoader;
@@ -2119,8 +2126,11 @@ eval "use BSD::Resource;";
 eval "use Digest::MD5;";
 eval "use File::Sync;";
 
-# Load the signal handling code.
-bootstrap Net::FTPServer $VERSION;
+unless ($ENV{NO_BOOTSTRAP})
+  {
+    # Load the signal handling code.
+    bootstrap Net::FTPServer $VERSION;
+  }
 
 # Global variables and constants.
 use vars qw(@_default_commands
@@ -2303,8 +2313,20 @@ sub run
 	};
       }
 
-    # Install safe signal handlers.
-    _install_signals ();
+    if ($] < 5.00702)
+      {
+	# Install safe signal handlers.
+	_install_signals ();
+      }
+    else
+      {
+	# Perl >= 5.7.2 has safe signals. Just use ordinary handlers.
+	# Except for SIGHUP which needs to be called synchronously.
+	$SIG{URG} = sub { $self->_handle_sigurg };
+	$SIG{CHLD} = sub { $self->_handle_sigchld };
+	$SIG{HUP} = sub { $self->{_hup} = 1 };
+	$SIG{TERM} = sub { $self->_handle_sigterm };
+      }
 
     # The following signal handlers can be handled by Perl, since
     # all they are going to do is exit anyway.
@@ -2978,44 +3000,56 @@ sub run
   }
 
 # Signals are handled synchronously to get around the problem
-# with unsafe signals which exists in Perl < 5.7. Call the
+# with unsafe signals which exists in Perl < 5.7.2. Call the
 # following function periodically to check signals.
 sub _check_signals
   {
     my $self = shift;
-    my $sig = _test_and_clear_signals ();
-    return unless $sig;
 
-    if ($sig & (1 << &SIGURG))
+    if ($] < 5.00702)
       {
-	$self->_handle_sigurg;
-	$sig &= ~(1 << &SIGURG);
+	my $sig = _test_and_clear_signals ();
+	return unless $sig;
+
+	if ($sig & (1 << &SIGURG))
+	  {
+	    $self->_handle_sigurg;
+	    $sig &= ~(1 << &SIGURG);
+	  }
+
+	if ($sig & (1 << &SIGCHLD))
+	  {
+	    $self->_handle_sigchld;
+	    $sig &= ~(1 << &SIGCHLD);
+	  }
+
+	if ($sig & (1 << &SIGHUP))
+	  {
+	    $self->_handle_sighup;
+	    $sig &= ~(1 << &SIGHUP);
+	  }
+
+	if ($sig & (1 << &SIGTERM))
+	  {
+	    $self->_handle_sigterm;
+	    $sig &= ~(1 << &SIGTERM);
+	  }
+
+	if ($sig)
+	  {
+	    warn sprintf ("unprocessed signals: %032b", $sig);
+	  }
       }
-
-    if ($sig & (1 << &SIGCHLD))
+    else
       {
-	$self->_handle_sigchld;
-	$sig &= ~(1 << &SIGCHLD);
-      }
-
-    if ($sig & (1 << &SIGHUP))
-      {
-	$self->_handle_sighup;
-	$sig &= ~(1 << &SIGHUP);
-      }
-
-    if ($sig & (1 << &SIGTERM))
-      {
-	$self->_handle_sigterm;
-	$sig &= ~(1 << &SIGTERM);
-      }
-
-    if ($sig)
-      {
-	warn sprintf ("unprocessed signals: %032b", $sig);
+	# Perl >= 5.7.2 has safe signals, but we still need to
+	# handle SIGHUP synchronously. The signal handler set
+	# $self->{_hup} for us.
+	$self->_handle_sighup if $self->{_hup};
       }
   }
 
+# Handle SIGURG signal in the parent process.
 sub _handle_sigurg
   {
     my $self = shift;
@@ -3023,7 +3057,7 @@ sub _handle_sigurg
     $self->{_urgent} = 1;
   }
 
-# Handle SIGCHLD signal synchronously in the parent process.
+# Handle SIGCHLD signal in the parent process.
 sub _handle_sigchld
   {
     my $self = shift;
@@ -3038,7 +3072,10 @@ sub _handle_sigchld
 
 # Handle SIGHUP signal synchronously in the parent process.
 # This code mostly by Rob, rewritten and simplified by Rich for
-# the new synchronous signal handling code.
+# the new synchronous signal handling code. Note that this function
+# has to be called synchronously (not from a signal handler, even
+# in Perl >= 5.7.2) because otherwise the exec will happen with
+# most signals blocked.
 sub _handle_sighup
   {
     my $self = shift;
@@ -3055,10 +3092,10 @@ sub _handle_sighup
     $self->_log_line ("[DAEMON Reloading]");
 
     # Restart self.
-    exec ($0, @ARGV);
+    exec ($0, @ARGV) or die "hup exec failed: $!";
   }
 
-# Handle SIGTERM signal synchronously in the parent process.
+# Handle SIGTERM signal in the parent process.
 sub _handle_sigterm
   {
     my $self = shift;
@@ -3323,7 +3360,7 @@ sub _be_daemon
     else
       {
 	# Discover the default FTP port from /etc/services or equivalent.
-	my $default_port = getservbyname "ftp", "tcp" || 21;
+	my $default_port = getservbyname ("ftp", "tcp") || 21;
 
 	# Construct argument list to socket.
 	my @args = (Reuse => 1,
@@ -3387,26 +3424,38 @@ sub _be_daemon
 	# perhaps you should be using inetd?).
 
 	my $sock;
-	my $selector = new IO::Select;
-	$selector->add ($self->{_ctrl_sock});
 
-	until (defined $sock)
+	if ($] < 5.00702)
 	  {
-	    my @ready = $selector->can_read (3);
+	    my $selector = new IO::Select;
+	    $selector->add ($self->{_ctrl_sock});
 
-	    $self->_check_signals;
-
-	    if (@ready > 0)
+	    until (defined $sock)
 	      {
-		$sock = $self->{_ctrl_sock}->accept;
-		warn "accept: $!" unless defined $sock;
+		my @ready = $selector->can_read (3);
+
+		$self->_check_signals;
+
+		if (@ready > 0)
+		  {
+		    $sock = $self->{_ctrl_sock}->accept;
+		    warn "accept: $!" unless defined $sock;
+		  }
 	      }
+	  }
+	else
+	  {
+	    # With Perl >= 5.7.2 we have safe signals anyway and
+	    # so we can just call accept.
+
+	    $sock = $self->{_ctrl_sock}->accept;
+	    warn "accept: $!" unless defined $sock;
 	  }
 
 	if ($self->concurrent_connections >= $self->{_max_clients})
 	  {
 	    $sock->print ("500 ".
-			  $self->_percent_substitutions ($self->{_max_clients_message}). 
+			  $self->_percent_substitutions ($self->{_max_clients_message}).
 			  "\r\n");
 	    $sock->close;
 	    warn "Max connections $self->{_max_clients} reached!";
@@ -4694,9 +4743,18 @@ sub _CWD_command
     # Look relative to the current directory first.
     if ($new_cwd = $self->_chdir ($self->{cwd}, $rest))
       {
-	$self->{cwd} = $new_cwd;
-	$self->_chdir_message;
-	return;
+        # Access control
+        unless ($self->_eval_rule ("chdir rule",
+                                   $new_cwd->pathname, $new_cwd->filename,
+                                   $new_cwd->pathname))
+          {
+            $self->reply (550, "CWD command denied by server configuration.");
+            return;
+          }
+
+        $self->{cwd} = $new_cwd;
+        $self->_chdir_message;
+        return;
       }
 
     # Look for an alias called ``$rest''.
@@ -4747,12 +4805,21 @@ sub _CDUP_command
 
     if (my $new_cwd = $self->_chdir ($self->{cwd}, ".."))
       {
-	$self->{cwd} = $new_cwd;
-	$self->_chdir_message;
+        # Access control
+        unless ($self->_eval_rule ("chdir rule",
+                                   $new_cwd->pathname, $new_cwd->filename,
+                                   $new_cwd->pathname))
+          {
+            $self->reply (550, "CDUP command denied by server configuration.");
+            return;
+          }
+
+        $self->{cwd} = $new_cwd;
+        $self->_chdir_message;
       }
     else
       {
-	$self->reply (550, "Directory not found.");
+        $self->reply (550, "Directory not found.");
       }
   }
 
@@ -5834,7 +5901,10 @@ sub _SITE_command
 
     # Find the command.
     # See also RFC 2640 section 3.1.
-    unless ($rest =~ /^([A-Z]{3,})\s?(.*)/i)
+    # "Brian Freeman" <Brian.Freeman@eby-brown.com> wants to be able to use
+    # non-alpha characters in SITE command names. Fine by me as far as I can
+    # tell.
+    unless ($rest =~ /^(\S{3,})\s?(.*)/i)
       {
 	$self->reply (501, "Syntax error in SITE command.");
 	return;
@@ -6372,7 +6442,7 @@ sub _FEAT_command
     # Print out the extensions supported. Don't use $self->reply, since
     # it doesn't have the exact guaranteed behaviour (it instead immitates
     # wu-ftpd by putting the server code in each line).
-    # 
+    #
     # See RFC 2389 section 3.2.
     print "211-Extensions supported:\r\n";
 
@@ -6867,7 +6937,7 @@ sub _mlst_format
 # Routine: xfer_start
 # Purpose: Initialize the beginning of a transfer.
 # PreCond:
-#   Takes fill pathname and direction as arguments.
+#   Takes full pathname and direction as arguments.
 #   _xferlog should be set to a writeable file handle.
 #   Should not already have xfer_start'ed a transfer
 #    or already finished it with a xfer_flush call.
@@ -7817,7 +7887,7 @@ sub post_command_hook
 
 Hook: This hook is used instead of $! when what looks like a system error
 occurs during a virtual filesystem handle method.  It can be used by the
-virtual filesystem to provide explanatory text for a virtual filesystem 
+virtual filesystem to provide explanatory text for a virtual filesystem
 failure which did not actually set the real $!.
 
 Status: optional.
