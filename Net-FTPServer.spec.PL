@@ -1,12 +1,10 @@
 # Copyright (C) 1999 Bibliotech Ltd., 631-633 Fulham Rd., London SW6 5UQ.
 #
-# $Id: Net-FTPServer.spec.PL,v 1.16 2002/12/28 16:09:50 rich Exp $
+# $Id: Net-FTPServer.spec.PL,v 1.17 2003/01/17 08:09:33 rbrown Exp $
 
 use strict;
 
 my $output = (@ARGV > 0 ? $ARGV[0] : "Net-FTPServer.spec");
-
-$ENV{NO_BOOTSTRAP} = 1;
 
 unless (do "lib/Net/FTPServer.pm")
   {
@@ -82,19 +80,20 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS COPYING FAQ INSTALL README TODO doc/*
-%{perlsitearch}/auto/Net/FTPServer/
-%{perlsitearch}/Net/FTPServer.pm
-%{perlsitearch}/Net/FTPServer/
+%{perlsitelib}/Net/FTPServer.pm
+%{perlsitelib}/Net/FTPServer/
 %{perlman3dir}/*.3*
 /usr/sbin/*.pl
 %config(noreplace) /etc/ftpd.conf
 
 
 %changelog
+* Fri Jan 17 2003 Rob Brown <bbb@cpan.org>
+- No more XS code.
 * Fri Dec 28 2001 Richard Jones <rich@annexia.org>
 - Better handling of different Perl versions. RPM contains documentation,
 - config file and start-up scripts.
-* Tue Feb 15 2001 Rob Brown <rbrown@about-inc.com>
+* Tue Feb 15 2001 Rob Brown <bbb@cpan.org>
 - Generalized files - works with Perl 5.6 as well as with Perl 5.005
 * Tue Feb 08 2001 Richard Jones <rich@annexia.org>
 - initial creation

@@ -8,7 +8,7 @@
 
 Summary: Net::FTPServer - an extensible, secure FTP server
 Name: perl-Net-FTPServer
-Version: 1.114
+Version: 1.115
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
@@ -56,19 +56,20 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS COPYING FAQ INSTALL README TODO doc/*
-%{perlsitearch}/auto/Net/FTPServer/
-%{perlsitearch}/Net/FTPServer.pm
-%{perlsitearch}/Net/FTPServer/
+%{perlsitelib}/Net/FTPServer.pm
+%{perlsitelib}/Net/FTPServer/
 %{perlman3dir}/*.3*
 /usr/sbin/*.pl
 %config(noreplace) /etc/ftpd.conf
 
 
 %changelog
+* Fri Jan 17 2003 Rob Brown <bbb@cpan.org>
+- No more XS code.
 * Fri Dec 28 2001 Richard Jones <rich@annexia.org>
 - Better handling of different Perl versions. RPM contains documentation,
 - config file and start-up scripts.
-* Tue Feb 15 2001 Rob Brown <rbrown@about-inc.com>
+* Tue Feb 15 2001 Rob Brown <bbb@cpan.org>
 - Generalized files - works with Perl 5.6 as well as with Perl 5.005
 * Tue Feb 08 2001 Richard Jones <rich@annexia.org>
 - initial creation

@@ -1,4 +1,4 @@
-$Id: README,v 1.79 2003/01/13 19:13:35 rbrown Exp $
+$Id: README,v 1.81 2003/01/23 00:43:24 rbrown Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -81,17 +81,23 @@ Richard Jones <rich@annexia.org>.
 CHANGE LOG
 ---------------------------------------------
 
+Version 1.115: EXPERIMENTAL RELEASE. Remove bootstrap code from spec
+file so rpm works again. (Broken since 1.112.)  Add "ftp data port"
+directive to allow server to comply closer with RFC 959 if the user
+wishes to do so.  But for security reasons, the default remains to use
+the high ephemeral port.  -- Rob
+
 Version 1.114: EXPERIMENTAL RELEASE. No new features. Bug fixes only.
 Fix t/150commands.t LANG test failure on some systems.  Avoid race
 condition in t/400sighup.t that can occur when client connects before
 SIGHUP is done restarting the server.  Fixed the RMD bug introduced
 from Luis' Darwin / Mac OS X "removing directoring" patch in 1.112.
-Now RMD works again for the "Full" personality.
+Now RMD works again for the "Full" personality.  -- Rob
 
 Version 1.113: EXPERIMENTAL RELEASE. Removed all XS code. Signal
 handlers are pure perl now even for older versions of perl < 5.7.
 Concept taken from Net::Server::SIG in order to avoid dangerous
-pitfalls of unsafe signal handling in older versions of perl.
+pitfalls of unsafe signal handling in older versions of perl. -- Rob
 
 Version 1.112: EXPERIMENTAL RELEASE. Avoids sleeping in Makefile.PL if
 you set NET_FTPSERVER_NO_SLEEP=1. If Perl version >= 5.7.2, then the
@@ -375,7 +381,7 @@ actually reflect error conditions. Fixed calls to
 syswrite(). Incomplete three-way TCP handshake no longer crashes the
 server. Add -P option on the command line to supply name of
 pidfile. Delete pidfile when main process dies. (Thanks to Rob Brown
-at about-inc.com for the bulk of these fixes).
+for the bulk of these fixes).
 
 Version 0.9.6: Fixed a bug with LISTing files in subdirectories
 (thanks to all @about-inc.com).

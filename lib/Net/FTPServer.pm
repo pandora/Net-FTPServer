@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.198 2003/01/06 09:23:18 rbrown Exp $
+# $Id: FTPServer.pm,v 1.201 2003/01/23 00:08:29 rbrown Exp $
 
 =pod
 
@@ -642,6 +642,59 @@ Default: 0
 
 Example: C<allow connect low port: 1>
 
+=item passive port range
+
+What range of local ports will the FTP server listen on in passive
+mode? Choose a range here like C<1024-5999,49152-65535>. The special
+value C<0> means that the FTP server will use a kernel-assigned
+ephemeral port.
+
+Default: 49152-65535
+
+Example: C<passive port range: 0>
+
+=item ftp data port
+
+Which source port to use for active (non-passive) mode when connecting
+to the client for PORT mode transfers.  The special value C<0> means
+that the FTP server will use a kernel-assigned ephemeral port.  To
+strictly follow RFC, this should be set to C<ftp-data(20)>.  This may
+be required for certain brain-damaged firewall configurations.  However,
+for security reasons, the default setting is intentionally set to C<0>
+to utilize a kernel-assigned ephemeral port.  Use this directive at
+your own risk!
+
+SECURITY PRECAUTIONS:
+
+1) Unfortunately, to use a port E<lt> 1024 requires super-user
+privileges.  Thus, low ports will not work unless the FTP server is
+invoked as super-user.  This also implies that all processes handling
+the client connections must also I<remain> super-user throughout
+the entire session.  It is highly discouraged to use a low port.
+
+ http://cr.yp.to/ftp/security.html
+ (See "Connection laundering" section)
+
+2) There sometimes exists a danger of needing to connect to the
+same remote host:port.  Using the same IP/port on both sides
+will cause connect() to fail if the old socket is still being
+broken down.  This condition will not occur if using an ephemeral
+port.
+
+ http://groups.google.com/groups?selm=fa.epucqgv.1l2kl0e@ifi.uio.no
+ (See "unable to create socket" comment)
+
+3) Many hackers use source port 20 to blindly circumvent certain
+naive firewalls.  Using an ephemeral port (the default) may help
+discourage such dangerous naivety.
+
+ man nmap
+ (See the -g option)
+
+Default: 0
+
+Example: C<ftp data port: ftp-data>
+
 =item max login attempts
 
 Maximum number of login attempts before we drop the connection
@@ -733,17 +786,6 @@ real Unix users in different chrooted directories!)
 Default: (none)
 
 Example: C<password file: /etc/ftpd.passwd>
-
-=item passive port range
-
-What range of local ports will the FTP server listen on in passive
-mode? Choose a range here like C<1024-5999,49152-65535>. The special
-value C<0> means that the FTP server will use a kernel-assigned
-ephemeral port.
-
-Default: 49152-65535
-
-Example: C<passive port range: 0>
 
 =item pidfile
 
@@ -1713,7 +1755,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.198 2003/01/06 09:23:18 rbrown Exp $
+  200-$Id: FTPServer.pm,v 1.201 2003/01/23 00:08:29 rbrown Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2080,7 +2122,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.114';
+$VERSION = '1.115';
 $RELEASE = 1;
 
 # Non-optional modules.
@@ -2448,7 +2490,7 @@ sub run
 	($sockport, $sockaddr) = unpack_sockaddr_in ($sockname);
 	$sockaddrstring = inet_ntoa ($sockaddr);
 
-	# Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+	# Added 21 Feb 2001 by Rob Brown
 	# If MSG_OOB data arrives on STDIN send it inline and trigger SIGURG
 	setsockopt (STDIN, SOL_SOCKET, SO_OOBINLINE, pack ("l", 1))
 	  or warn "setsockopt: SO_OOBINLINE: $!";
@@ -3074,7 +3116,7 @@ sub _handle_sigterm
     exit;
   }
 
-# Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+# Added 21 Feb 2001 by Rob Brown
 # Client command logging
 sub _log_line
   {
@@ -3088,7 +3130,7 @@ sub _log_line
     $io->print ("[$time][$$:$authenticated]$message");
   }
 
-# Added 08 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+# Added 08 Feb 2001 by Rob Brown
 # Safely saves the process id to the specified pidfile.
 # If no pidfile is specified, nothing happens.
 sub _save_pid
@@ -3383,7 +3425,7 @@ sub _be_daemon
 	# ACCEPT may be undefined if, for example, the TCP-level 3-way
 	# handshake is not completed. If this happens, all we really want
 	# to do is to retry the accept, not die. Thanks to
-	# rbrown@about-inc.com for pointing this one out :-)
+	# Rob Brown for pointing this one out :-)
 
 	# Because we are now handling signals synchronously, and because
 	# signals are restartable, we want to periodically check for
@@ -4673,9 +4715,13 @@ sub _drop_privs
     $) = join (" ", $gid, $gid, @groups);
     $> = $uid;
 
-    # Set the real GID/UID.
-    $( = $gid;
-    $< = $uid;
+    if (!$self->config("ftp data port") ||
+        $self->config("ftp data port") >= 1024)
+      {
+        # Set the real GID/UID.
+        $( = $gid;
+        $< = $uid;
+      }
   }
 
 sub _ACCT_command
@@ -5722,7 +5768,7 @@ sub _LIST_command
     $self->xfer_start ($dirh->pathname, "o") if $self->{_xferlog};
 
     # If the path ($rest) contains a directory name, extract it so that
-    # we can prefix it to every filename listed. Thanks rbrown@about-inc.com
+    # we can prefix it to every filename listed. Thanks Rob Brown
     # for pointing this problem out.
     my $prefix = (($fileh || $wildcard) && $rest =~ /(.*\/).*/) ? $1 : "";
 
@@ -5817,7 +5863,7 @@ sub _NLST_command
     $self->xfer_start ($dirh->pathname, "o") if $self->{_xferlog};
 
     # If the path ($rest) contains a directory name, extract it so that
-    # we can prefix it to every filename listed. Thanks rbrown@about-inc.com
+    # we can prefix it to every filename listed. Thanks Rob Brown
     # for pointing this problem out.
     my $prefix = (($fileh || $wildcard) && $rest =~ /(.*\/).*/) ? $1 : "";
 
@@ -7230,15 +7276,34 @@ sub open_data_connection
 
     if (! $self->{_passive})
       {
-	# Active mode - connect back to the client.
-	"0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
-	$sock
-	  = new IO::Socket::INET->new (PeerAddr => $self->{_hostaddrstring},
-				       PeerPort => $self->{_hostport},
-				       Proto => "tcp",
-				       Type => SOCK_STREAM,
-				       Reuse => 1)
-	    or return undef;
+        # Active mode - connect back to the client.
+        if (my $source_port = $self->config("ftp data port"))
+          {
+            # Temporarily jump back to super user just
+            # long enough to bind the privileged port.
+            local $) = 0;
+            local $> = 0;
+            "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
+            $sock = new IO::Socket::INET
+              LocalPort => $source_port,
+              PeerAddr => $self->{_hostaddrstring},
+              PeerPort => $self->{_hostport},
+              Proto => "tcp",
+              Type => SOCK_STREAM,
+              Reuse => 1,
+              or warn "Failed to bind() local port [$source_port] ($!)\n";
+          }
+        unless ($sock)
+          {
+            "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
+            $sock = new IO::Socket::INET
+              PeerAddr => $self->{_hostaddrstring},
+              PeerPort => $self->{_hostport},
+              Proto => "tcp",
+              Type => SOCK_STREAM,
+              Reuse => 1,
+              or return undef;
+          }
       }
     else
       {
@@ -8063,7 +8128,7 @@ and bugs.
 =head1 AUTHORS
 
 Richard Jones (rich@annexia.org),
-Rob Brown (rbrown at about-inc.com),
+Rob Brown (bbb@cpan.org),
 Keith Turner (keitht at silvaco.com),
 Azazel (azazel at azazel.net),
 and many others.
