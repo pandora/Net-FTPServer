@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.5 2001/07/10 11:41:40 rich Exp $
+# $Id: Makefile.PL,v 1.7 2001/07/24 09:54:35 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -34,6 +34,7 @@ my %modules
   = (
      'Authen::PAM' =>
      { status => "recommended",
+       version => "0.12",
        message =>
        "Authen::PAM is missing. This module is required in order to\n".
        "perform user authentication against the full FTP server\n".
@@ -68,7 +69,8 @@ my %modules
      'IO::Dir' => { status => "required", package => "IO" },
      'IO::File' => { status => "required", package => "IO" },
      'IO::Handle' => { status => "required", package => "IO" },
-     'IO::Scalar' => { status => "required", package => "IO-stringy" },
+     'IO::Scalar' => { status => "required", package => "IO-stringy",
+		       version => "1.126" },
      'IO::Socket' => { status => "required", package => "IO" },
      'POSIX' => { status => "required" },
      'Socket' => { status => "required" },
@@ -85,10 +87,16 @@ my $missing_required_modules = 0;
 
 foreach (sort keys %modules)
   {
-    print "Checking for $modules{$_}{status} module $_ ... ";
+    print "Checking for $modules{$_}{status} ";
+    print "module $_ ";
+    print ">= $modules{$_}{version} " if $modules{$_}{version};
+    print "... ";
 
-    eval "require $_";
-    if ($@)
+    my $eval = "require $_; ";
+    $eval .= "$_->VERSION >= $modules{$_}{version}" if $modules{$_}{version};
+
+    my $r = eval $eval;
+    if ($@ || !$r)
       {
 	$missing_modules++;
 	$missing_required_modules++ if $modules{$_}{status} eq "required";

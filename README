@@ -1,4 +1,4 @@
-$Id: README,v 1.11 2001/07/10 11:41:40 rich Exp $
+$Id: README,v 1.13 2001/07/24 09:54:35 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -63,6 +63,16 @@ Send feedback, bug reports, questions and patches to the author,
 Richard Jones <rich@annexia.org>.
 
 CHANGE LOG
+
+Version 1.0.22: Check for most recent version of IO-stringy installed
+before proceeding. Added xfer logging (Rob). Don't try to allocate or
+deallocate memory in SIGCHLD handler -- this was causing the parent
+process to crash under heavy load (Rob). Better way to avoid warning
+from loading Sys::Syslog (Rob). Better conditional loading of
+BSD::Resource (Rob). If using PAM, upgrade to version 0.12 from CPAN
+(Rich). Rob has reported that this version is now stable again under
+heavy load. If you have problems, please mail them to:
+ftpserver@annexia.org.
 
 Version 1.0.21: More documentation on <Perl>. Allow array assignments
 to %config/%host_config elements. Always check the return value from

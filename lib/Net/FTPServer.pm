@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.98 2001/07/10 11:41:40 rich Exp $
+# $Id: FTPServer.pm,v 1.109 2001/07/24 09:54:36 rich Exp $
 
 =pod
 
@@ -596,6 +596,18 @@ Examples:
 
  client logging: /var/log/ftpd.log
  client logging: /tmp/ftpd_log.$hostname
+
+=item xfer logging
+
+Location of transfer log.  The format was taken from
+wu-ftpd and ProFTPD xferlog. (See also "man xferlog")
+
+Default: (no logging)
+
+Examples:
+
+ xfer logging: /var/log/xferlog
+ xfer logging: /tmp/xferlog.$hostname
 
 =item hide passwords in client log
 
@@ -1415,7 +1427,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.98 2001/07/10 11:41:40 rich Exp $
+  200-$Id: FTPServer.pm,v 1.109 2001/07/24 09:54:36 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1705,13 +1717,12 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.21';
-$RELEASE = 4;
+$VERSION = '1.0.22';
+$RELEASE = 1;
 
 use Config;
 use Getopt::Long qw(GetOptions);
 use Sys::Hostname;
-use Sys::Syslog qw();
 use Socket;
 use IO::Socket;
 use IO::File;
@@ -1721,6 +1732,19 @@ use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
+
+# We require this to suppress warning messages from going to the client
+# when it starts up, eg. Constant subroutine __need___va_list undefined ...
+# (Thanks to Rob Brown for this fix.)
+
+BEGIN {
+  local $^W=0;
+  require Sys::Syslog;
+}
+
+# We need to make sure this is evaluated, because the
+# BSD::Resource module is optional, and may not be available.
+eval 'use BSD::Resource;';
 
 use vars qw(@_default_commands
 	    @_default_site_commands
@@ -1869,7 +1893,8 @@ sub run
 	}
 
 	Sys::Syslog::openlog "ftpd", "pid", "daemon";
-	$self->log ("info", "%s running", $self->{version_string});
+	$self->log ("info", $self->{version_string} . " running");
+
       }
 
     # Set up a hook for warn and die so that these cause messages to
@@ -1938,6 +1963,34 @@ sub run
 	  {
 	    $io->autoflush (1);
 	    $self->{client_log} = $io;
+	  }
+	else
+	  {
+	    die "cannot append: $log_file: $!";
+	  }
+      }
+
+    # Setup xfer Logging.
+    if (defined $self->config ("xfer logging"))
+      {
+	my $log_file = $self->config ("xfer logging");
+
+	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
+	$log_file =~ s/\$(\w+)/$self->{$1}/g;
+	if ($log_file =~ m%^([/\w\-\.]+)$%)
+	  {
+	    $self->{_log_file} = $log_file = $1;
+	  }
+	else
+	  {
+	    die "Refusing to create weird looking xfer log file: $log_file";
+	  }
+
+	my $io = new IO::File $log_file, "a";
+	if (defined $io)
+	  {
+	    $io->autoflush (1);
+	    $self->{_xferlog} = $io;
 	  }
 	else
 	  {
@@ -2384,7 +2437,7 @@ sub run
 
 	# Log client command if logging is enabled.
 	$self->_log_line ($_)
-	  unless /^PASS / && $self->config ("hide passwords in client log");
+	  unless /^PASS /i && $self->config ("hide passwords in client log");
 
 	# Go slow?
 	sleep $self->config ("command wait")
@@ -2445,6 +2498,9 @@ sub run
 
 	# Post-command hook.
 	$self->post_command_hook;
+
+	# Write out any xferlog that may have built up from the command
+	$self->xfer_flush if $self->{_xferlog};
       }
 
     $self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
@@ -2506,25 +2562,20 @@ sub _set_rlimit
     my $name = shift;
     my $value = shift;
 
-    # We need to make sure this is evaluated at runtime, because the
-    # BSD::Resource module is optional, and may not be available.
-
-    eval <<EOT;
-
-    use BSD::Resource;
-
-    if (exists get_rlimits()->{$name})
+    # The BSD::Resource module is optional, and may not be available.
+    if (exists $INC{"BSD/Resource.pm"})
       {
-	setrlimit ($name, $value, $value)
-	  or die "setrlimit: $!";
+	if (exists get_rlimits()->{$name})
+	  {
+	    setrlimit (&{$ {BSD::Resource::}{$name}}, $value, $value)
+	      or die "setrlimit: $!";
+	  }
+	else
+	  {
+	    die "resource limit $name is not available";
+	  }
       }
     else
-      {
-	die "resource limit $name is not available";
-      }
-EOT
-
-    if ($@)
       {
 	warn
 	  "Resource limit $name cannot be set. This may be because ",
@@ -2681,31 +2732,19 @@ sub _be_daemon
 
     # Initialize the children hash ref for max clients enforcement
     $self->{_children} = {};
+    $self->{_smelled_zombie} = 0;
 
     $self->post_bind_hook;
 
-    # Automatically clean up zombie children.
+    # SIGCHLD is triggered when a child process exits
     $SIG{CHLD} = sub
       {
 	my $kid;
+	# Clear Zombies
 	while (($kid = waitpid (-1,WNOHANG)) > 0)
 	  {
-	    next unless ref $self->{_children};
 	    # Client $kid just finished
-	    delete $self->{_children}->{$kid};
-	  }
-	# Do not crash from attempting to dereference a number
-	return unless ref $self->{_children};
-
-	# Take care of a race condition where client B finishes
-	# (causing another SIGCHLD) after client A finishes its
-	# waitpid (de-zombied), but before reaching its delete.
-	foreach (keys %{$self->{_children}})
-	  {
-	    # Quickly send a test signal to make sure all the
-	    # _children processes are still running.  If not,
-	    # remove it from the _children hash.
-	    delete $self->{_children}->{$_} unless kill 0, $_;
+	    $self->{_smelled_zombie} = 1;
 	  }
       };
 
@@ -2739,6 +2778,19 @@ sub _be_daemon
 
 	    warn "accept: $!" unless defined $sock;
 	  }
+
+	if ($self->{_smelled_zombie}) {
+	  # Try to forget about the dead children to save memory
+	  # and to make concurrent_connections perfectly accurate.
+	  foreach (keys %{$self->{_children}})
+	    {
+	      # Quickly send a test signal to make sure all the
+	      # _children processes are still running.  If not,
+	      # remove it from the _children hash.
+	      delete $self->{_children}->{$_} unless kill 0, $_;
+	    }
+	  $self->{_smelled_zombie} = 0;
+	}
 
 	if ($self->concurrent_connections >= $self->{_max_clients})
 	  {
@@ -4103,6 +4155,9 @@ sub _RETR_command
 	return;
       }
 
+    # Outgoing bandwidth
+    $self->xfer_start ($fileh->pathname, "o") if $self->{_xferlog};
+
     # What mode are we sending this file in?
     unless ($self->{type} eq 'A') # Binary type.
       {
@@ -4118,6 +4173,8 @@ sub _RETR_command
 	# Copy data.
 	while ($r = $file->sysread ($buffer, 65536))
 	  {
+	    $self->xfer ($r) if $self->{_xferlog};
+
 	    # Restart alarm clock timer.
 	    alarm $self->{_idle_timeout};
 
@@ -4189,6 +4246,8 @@ sub _RETR_command
 	# Copy data.
 	while ($_ = $file->getline)
 	  {
+	    $self->xfer (length $_) if $self->{_xferlog};
+
 	    # Remove any native line endings.
 	    s/[\n\r]+$//;
 
@@ -4222,6 +4281,7 @@ sub _RETR_command
 	return;
       }
 
+    $self->xfer_complete if $self->{_xferlog};
     $self->reply (226, "File retrieval complete. Data connection has been closed.");
   }
 
@@ -4526,6 +4586,9 @@ sub _LIST_command
 	return;
       }
 
+    # Outgoing bandwidth
+    $self->xfer_start ($dirh->pathname, "o") if $self->{_xferlog};
+
     # If the path ($rest) contains a directory name, extract it so that
     # we can prefix it to every filename listed. Thanks rbrown@about-inc.com
     # for pointing this problem out.
@@ -4542,7 +4605,9 @@ sub _LIST_command
 	unless ($wildcard)
 	  {
 	    # Synthesize "total" field.
-	    $sock->print ("total 1\r\n");
+	    my $header = "total 1\r\n";
+	    $self->xfer (length $header);
+	    $sock->print ($header);
 	  }
 
 	my $r = $dirh->_list_status ($wildcard);
@@ -4563,6 +4628,7 @@ sub _LIST_command
 	return;
       }
 
+    $self->xfer_complete if $self->{_xferlog};
     $self->reply (226, "Listing complete. Data connection has been closed.");
   }
 
@@ -4607,6 +4673,9 @@ sub _NLST_command
 	return;
       }
 
+    # Outgoing bandwidth
+    $self->xfer_start ($dirh->pathname, "o") if $self->{_xferlog};
+
     # If the path ($rest) contains a directory name, extract it so that
     # we can prefix it to every filename listed. Thanks rbrown@about-inc.com
     # for pointing this problem out.
@@ -4625,9 +4694,10 @@ sub _NLST_command
 	foreach (@$r)
 	  {
 	    my $filename = $_->[0];
-	    my $handle = $_->[1];
-
-	    $sock->print ($prefix . $filename, "\r\n");
+	    my $handle = $_->[1];   # handle not used?
+	    my $line = "$prefix$filename\r\n";
+	    $self->xfer (length $line);
+	    $sock->print ($line);
 	  }
       }
 
@@ -4637,6 +4707,7 @@ sub _NLST_command
 	return;
       }
 
+    $self->xfer_complete if $self->{_xferlog};
     $self->reply (226, "Listing complete. Data connection has been closed.");
   }
 
@@ -5390,10 +5461,14 @@ sub _MLSD_command
 	return;
       }
 
+    # Outgoing bandwidth
+    $self->xfer_start ($dirh->pathname, "o") if $self->{_xferlog};
+
     # OK, we're either listing a full directory, listing a single
     # file or listing a wildcard.
     if ($fileh)			# Single file in $dirh.
       {
+	# Do not bother logging xfer of the status of one file
 	$sock->print ($self->_mlst_format ($filename, $fileh), "\r\n");
       }
     else			# Wildcard or full directory $dirh.
@@ -5405,9 +5480,10 @@ sub _MLSD_command
 	    my $filename = $_->[0];
 	    my $handle = $_->[1];
 	    my $statusref = $_->[2];
-
-	    $sock->print ($self->_mlst_format ($filename,
-					       $handle, $statusref), "\r\n");
+	    my $line = $self->_mlst_format ($filename,
+					    $handle, $statusref). "\r\n";
+	    $self->xfer (length $line) if $self->{_xferlog};
+	    $sock->print ($line);
 	  }
       }
 
@@ -5417,6 +5493,7 @@ sub _MLSD_command
 	return;
       }
 
+    $self->xfer_complete if $self->{_xferlog};
     $self->reply (226, "Listing complete. Data connection has been closed.");
   }
 
@@ -5608,6 +5685,91 @@ sub _mlst_format
     # Return the facts to the user in a string.
     return join (";", @facts) . "; " . $filename;
   }
+
+# Routine: xfer_start
+# Purpose: Initialize the beginning of a transfer.
+# PreCond:
+#   Takes fill pathname and direction as arguments.
+#   _xferlog should be set to a writeable file handle.
+#   Should not already have xfer_start'ed a transfer
+#    or already finished it with a xfer_flush call.
+sub xfer_start
+  {
+    my $self = shift;
+    # If old data still exists, write to log
+    # (This should not happen.)
+    $self->xfer_flush if $self->{xfer};
+    $self->{xfer} = {
+      status => "i",  # Default to incomplete transfer status
+      start  => time, # Started right now
+      bytes  => 0,    # Nothing transferred yet
+      path   => shift,
+      direct => shift,
+    };
+  }
+
+# Routine: xfer
+# Purpose: Log transfer chunk.
+# PreCond:
+#   Takes the number of bytes just transferring.
+#   Should have called xfer_start first.
+sub xfer
+  {
+    my $self = shift;
+    return unless $self->{xfer};
+    $self->{xfer}->{bytes} += shift;
+  }
+
+# Routine: xfer_complete
+# Purpose: Mark that the transfer completed successfully.
+# PreCond:
+#   Should have called xfer_start first.
+sub xfer_complete
+  {
+    my $self = shift;
+    return unless $self->{xfer};
+    $self->{xfer}->{status} = 'c';
+    $self->xfer_flush;
+  }
+
+# Routine: xfer_flush
+# Purpose: Write to the xferlog and clean up.
+# PreCond:
+#   Should have called xfer_start first.
+sub xfer_flush
+  {
+    my $self = shift;
+    # If no xfer ref, then it's already flushed
+    my $xfer = $self->{xfer} or return;
+    return unless $self->{_xferlog};
+
+    # Wipe xfer ref to signify that it's flushed
+    delete $self->{xfer};
+
+    # Never log if zero bytes transferred
+    return unless $xfer->{bytes};
+
+    # Send information in the right format
+    $self->{_xferlog}->print
+      (join " ",
+       scalar(localtime($xfer->{start})),                    # current-time
+       (time() - $xfer->{start}),                            # transfer-time
+       ($self->{peerhostname} || $self->{peeraddrstring}),   # remote-host
+       $xfer->{bytes},                                       # file-size
+       $xfer->{path},                                        # filename
+       ($self->{type} eq 'A' ? "a" : "b"),                   # transfer-type
+       "_",  # Compression not implemented?                  # special-action-flag
+       $xfer->{direct},                                      # direction
+       ($self->{user_is_anonymous} ? "a" : "r"),             # access-mode
+       $self->{user},                                        # username
+       "ftp",                                                # service-name
+       "0",  # RFC931 stuff?                                 # authentication-method
+       "*",  # RFC931 stuff?                                 # authenticated-user-id
+       "$xfer->{status}".                                    # completion-status
+       "\n");
+    return;
+  }
+
 
 # Evaluate an access control rule from the configuration file.
 
@@ -5946,23 +6108,26 @@ sub _list_file
     my $fmt_time = strftime $fmt, localtime ($mtime);
 
     # Display the file.
-    $sock->printf ("%s%s%s%s%s%s%s%s%s%s%4d %-8s %-8s %8d %s %s\r\n",
-		   ($mode eq 'f' ? '-' : $mode),
-		   ($perms & 0400 ? 'r' : '-'),
-		   ($perms & 0200 ? 'w' : '-'),
-		   ($perms & 0100 ? 'x' : '-'),
-		   ($perms & 040 ? 'r' : '-'),
-		   ($perms & 020 ? 'w' : '-'),
-		   ($perms & 010 ? 'x' : '-'),
-		   ($perms & 04 ? 'r' : '-'),
-		   ($perms & 02 ? 'w' : '-'),
-		   ($perms & 01 ? 'x' : '-'),
-		   $nlink,
-		   $user,
-		   $group,
-		   $size,
-		   $fmt_time,
-		   $filename);
+    my $line = sprintf
+      ("%s%s%s%s%s%s%s%s%s%s%4d %-8s %-8s %8d %s %s\r\n",
+       ($mode eq 'f' ? '-' : $mode),
+       ($perms & 0400 ? 'r' : '-'),
+       ($perms & 0200 ? 'w' : '-'),
+       ($perms & 0100 ? 'x' : '-'),
+       ($perms & 040 ? 'r' : '-'),
+       ($perms & 020 ? 'w' : '-'),
+       ($perms & 010 ? 'x' : '-'),
+       ($perms & 04 ? 'r' : '-'),
+       ($perms & 02 ? 'w' : '-'),
+       ($perms & 01 ? 'x' : '-'),
+       $nlink,
+       $user,
+       $group,
+       $size,
+       $fmt_time,
+       $filename);
+    $self->xfer (length $line) if $self->{_xferlog};
+    $sock->print ($line);
   }
 
 # Implement the STOR, STOU (store unique) and APPE (append) commands.
@@ -6052,6 +6217,9 @@ sub _store
 	return;
       }
 
+    # Incoming bandwidth
+    $self->xfer_start ($dirh->pathname . $filename, "i") if $self->{_xferlog};
+
     # What mode are we receiving this file in?
     unless ($self->{type} eq 'A') # Binary type.
       {
@@ -6062,6 +6230,8 @@ sub _store
 	# Copy data.
 	while ($r = $sock->sysread ($buffer, 65536))
 	  {
+	    $self->xfer ($r) if $self->{_xferlog};
+
 	    # Restart alarm clock timer.
 	    alarm $self->{_idle_timeout};
 
@@ -6117,6 +6287,8 @@ sub _store
 	# Copy data.
 	while ($_ = $sock->getline)
 	  {
+	    $self->xfer (length $_) if $self->{_xferlog};
+
 	    # Remove any telnet-format line endings.
 	    s/[\n\r]*$//;
 
@@ -6155,6 +6327,7 @@ sub _store
 	return;
       }
 
+    $self->xfer_complete if $self->{_xferlog};
     $self->reply (226, "File store complete. Data connection has been closed.");
   }
 

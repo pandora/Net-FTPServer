@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.4 2001/07/10 11:41:43 rich Exp $
+# $Id: Server.pm,v 1.5 2001/07/24 09:54:39 rich Exp $
 
 =pod
 
@@ -132,8 +132,7 @@ sub _pam_check_password
 
 	    if (\$msg_type == PAM_PROMPT_ECHO_ON)
 	      {
-		# XXX PAM_CONV_ERR not defined in Authen::PAM.
-		return ( 19 );
+		return ( PAM_CONV_ERR );
 	      }
 	    elsif (\$msg_type == PAM_PROMPT_ECHO_OFF)
 	      {
@@ -152,8 +151,7 @@ sub _pam_check_password
 	      }
 	    else
 	      {
-		# XXX PAM_CONV_ERR not defined in Authen::PAM.
-		return ( 19 );
+		return ( PAM_CONV_ERR );
 	      }
 	  }
 
