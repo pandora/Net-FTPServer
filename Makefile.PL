@@ -65,6 +65,11 @@ WriteMakefile(
 	       #'Net-FTPServer.spec' => '$(VERSION_FROM)',
 	       #Makefile => '$(VERSION_FROM)',
 	      },
+
+	      HTMLLIBPODS =>
+	      {
+	       "lib/Net/FTPServer.pm" => "doc/Net::FTPServer.html",
+	      },
 	     );
 
 package MY;

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.1 2001/02/08 14:38:52 rich Exp $
+# $Id: FileHandle.pm,v 1.2 2001/05/29 16:48:55 rich Exp $
 
 =pod
 
@@ -123,8 +123,8 @@ sub status
       = lstat $self->{_pathname};
 
     # Generate printable user/group.
-    my $user = getpwuid $uid;
-    my $group = getgrgid $gid;
+    my $user = getpwuid ($uid) || "-";
+    my $group = getgrgid ($gid) || "-";
 
     # Permissions from mode.
     my $perms = $mode & 0777;

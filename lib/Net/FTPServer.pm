@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.58 2001/04/10 09:33:30 rich Exp $
+# $Id: FTPServer.pm,v 1.71 2001/05/29 17:43:49 rich Exp $
 
 =pod
 
@@ -56,13 +56,17 @@ Current features include:
 
 =head1 INSTALLING AND RUNNING THE SERVER
 
-A standard C<ftpd.conf> file is supplied with the server.
-You should study the comments in the file and edit it to
-your satisfaction, and then copy it to C</etc/ftpd.conf>.
+A standard C<ftpd.conf> file is supplied with the distribution.
+Full documentation for all the possible options which you
+may use in this file is contained in this manual page. See
+the section CONFIGURATION below.
+
+You should edit the standard file and then copy it
+to C</etc/ftpd.conf>:
 
   cp ftpd.conf /etc/
   chown root.root /etc/ftpd.conf
-  chmod 0755 /etc/ftpd.conf
+  chmod 0644 /etc/ftpd.conf
 
 Two start-up scripts are supplied with the ftp server,
 to run it in two common configurations: either as a full
@@ -143,13 +147,927 @@ personalities.
 
 The next sections talk about each of these possibilities in turn.
 
-=head2 EDITING /etc/ftpd.conf
+=head2 CONFIGURATION
 
 A standard C</etc/ftpd.conf> file is supplied with 
-C<Net::FTPServer> in the distribution. This contains
-all possible configurable options, information about
-them and defaults. You should consult the comments in
-this file for authoritative information.
+C<Net::FTPServer> in the distribution. The possible
+configuration options are listed in full below.
+
+=over 4
+
+=item E<lt>Include filenameE<gt>
+
+Use the E<lt>Include filenameE<gt> directive to include
+the contents of C<filename> directly at the current point
+within the configuration file.
+
+You cannot use E<lt>IncludeE<gt> within a E<lt>HostE<gt>
+section, or at least you I<can> but it wonE<39>t work the
+way you expect.
+
+=item debug
+
+Run with debugging. Equivalent to the command line -d option.
+
+Default: 0
+
+Example: C<debug: 1>
+
+=item port
+
+The TCP port number on which the FTP server listens when
+running in daemon mode (see C<daemon mode> option below).
+
+Default: The standard ftp/tcp service port from C</etc/services>
+
+Example: C<port: 8021>
+
+=item daemon mode
+
+Run as a daemon. If set, the FTP server will open a listening
+socket on its default port number, accept new connections and
+fork off a new process to handle each connection. If not set
+(the default), the FTP server will handle a single connection
+on stdin/stdout, which is suitable for use from inetd.
+
+The equivalent command line options are -s and -S.
+
+Default: 0
+
+Example: C<daemon mode: 1>
+
+=item run in background
+
+Run in the background. If set, the FTP server will fork into
+the background before running.
+
+The equivalent command line option is -S.
+
+Default: 0
+
+Example: C<run in background: 1>
+
+=item maintainer email
+
+MaintainerE<39>s email address.
+
+Default: root@I<hostname>
+
+Example: C<maintainer email: bob@example.com>
+
+=item timeout
+
+Timeout on control connection. If a command has not been
+received after this many seconds, the server drops the
+connection. You may set this to zero to disable timeouts
+completely (although this is not recommended).
+
+Default: 900 (seconds)
+
+Example: C<timeout: 600>
+
+=item limit memory
+
+=item limit nr processes
+
+=item limit nr files
+
+Resource limits. These limits are applied to each child
+process and are important in avoiding denial of service (DoS)
+attacks against the FTP server.
+
+ Resource         Default   Unit
+ limit memory        8192   KBytes  Amount of memory per child
+ limit nr processes     5   (none)  Number of processes
+ limit nr files        20   (none)  Number of open files
+
+Example: 
+
+ limit memory:       16384
+ limit nr processes:    10
+ limit nr files:        40
+
+=item resolve addresses
+
+Resolve addresses. If set, attempt to do a reverse lookup on
+client addresses for logging purposes. If you set this then
+some clients may experience long delays when they try to
+connect. Not recommended on high load servers.
+
+Default: 0
+
+Example: C<resolve addresses: 1>
+
+=item require resolved addresses
+
+Require resolved addresses. If set, client addresses must validly resolve
+otherwise clients will not be able to connect. If you set this
+then some clients will not be able to connect, even though it is
+probably the fault of their ISP.
+
+Default: 0
+
+Example: C<require resolved addresses: 1>
+
+=item change process name
+
+Change process name. If set (the default) then the FTP server will
+change its process name to reflect the IP address or hostname of
+the client. If not set then the FTP server will not try to change
+its process name.
+
+Default: 1
+
+Example: C<change process name: 0>
+
+=item greeting type
+
+Greeting type. The greeting is printed before the user has logged in.
+Possible greeting types are:
+
+    full     Full greeting, including hostname and version number.
+    brief    Hostname only.
+    terse    Nothing
+    text     Display greeting from ``greeting text'' option.
+
+The SITE VERSION command can also reveal the version number. You
+may need to turn this off by setting C<allow site version command: 0>
+below.
+
+Default: full
+
+Example: C<greeting type: text>
+
+=item greeting text
+
+Greeting text. If the C<greeting type> is set to C<text> then this
+contains the text to display.
+
+Default: none
+
+Example: C<greeting text: Hello. IE<39>ll be your server today.>
+
+=item welcome type
+
+Welcome type. The welcome is printed after a user has logged in.
+Possible welcome types are:
+
+    normal   Normal welcome message: ``Welcome <<username>>.''
+    text     Take the welcome message from ``welcome text'' option.
+    file     Take the welcome message from ``welcome file'' file.
+
+Default: normal
+
+Example: C<welcome type: text>
+
+=item welcome text
+
+If C<welcome type> is set to C<text>, then this contains the text
+to be printed after a user has logged in.
+
+You may use the following % escape sequences within the welcome
+text to substitute for internal variables:
+
+ %C  current working directory
+ %E  maintainer's email address (from ``maintainer email''
+     setting above)
+ %G  time in GMT
+ %R  remote hostname or IP address if ``resolve addresses''
+     is not set
+ %L  local hostname
+ %m  user's home directory (see ``home directory'' below)
+ %T  local time
+ %U  username given when logging in
+ %u  currently a synonym for %U, but in future will be
+     determined from RFC931 authentication, like wu-ftpd
+ %%  just an ordinary ``%''
+
+Default: none
+
+Example: C<welcome text: Welcome to this FTP server.>
+
+=item welcome file
+
+If C<welcome type> is set to C<file>, then this contains the file
+to be printed after a user has logged in.
+
+You may use any of the % escape sequences defined in C<welcome text>
+above.
+
+Default: none
+
+Example: C<welcome file: /etc/motd>
+
+=item home directory
+
+Home directory. This is the home directory where we put the
+user once they have logged in. This only applies to non-anonymous
+logins. Anonymous logins are always placed in "/", which is at the
+root of their chrooted environment.
+
+You may use an absolute path here, or else one of the following
+special forms:
+
+ %m   Use home directory from password file or from NSS.
+ %U   Username.
+ %%   A single % character.
+
+For example, to force a user to start in C<~/anon-ftp> when they
+log in, set this to C<%m/anon-ftp>.
+
+Note that setting the home directory does not perform a chroot.
+Use the C<root directory> setting below to jail users into a
+particular directory.
+
+Home directories are I<relative> to the current root directory.
+
+In the anonymous read-only (ro-ftpd) personality, set home
+directory to C</> or else you will get a warning whenever a user
+logs in.
+
+Default: %m
+
+Examples:
+
+ home directory: %m/anon-ftp
+ home directory: /
+
+=item root directory
+
+Root directory. Immediately after logging in, perform a chroot
+into the named directory. This only applies to non-anonymous
+logins, and furthermore it only applies if you have a non-database
+VFS installed. Database VFSes typically cannot perform chroot
+(or, to be more accurate, they have a different concept of
+chroot - typically assigning each user their own completely
+separate namespace).
+
+You may use %m and %U as above.
+
+For example, to jail a user under C<~/anon-ftp> after login, do:
+
+  home directory: /
+  root directory: %m/anon-ftp
+
+Notice that the home directory is I<relative> to the current
+root directory.
+
+Default: (none)
+
+Example: C<root directory: %m/anon-ftp>
+
+=item time zone
+
+Time zone to be used for MDTM and LIST stat information.
+
+Default: GMT
+
+Examples:
+
+ time zone: Etc/GMT+3
+ time zone: Europe/London
+ time zone: US/Mountain
+
+=item local address
+
+Local addresses. If you wish the FTP server (in daemon mode) to
+only bind to a particular local interface, then give its address
+here.
+
+Default: none
+
+Example: C<local address: 127.0.0.1>
+
+Allow anonymous access. If set, then allow anonymous access through
+the C<ftp> and C<anonymous> accounts.
+
+Default: 0
+
+Example: C<allow anonymous: 1>
+
+=item anonymous password check
+
+=item anonymous password enforce
+
+Validate email addresses. Normally when logging in anonymously,
+you are asked to enter your email address as a password. These options
+can be used to check and enforce email addresses in this field (to
+some extent, at least -- you obviously canE<39>t force someone to
+enter a true email address).
+
+The C<anonymous password check> option may be set to C<rfc822>,
+C<no browser>, C<trivial> or C<none>. If set to C<rfc822> then
+the user must enter a valid RFC 822 email address as password. If
+set to C<no browser> then a valid RFC 822 email address must be
+entered, and various common browser email addresses like
+C<mozilla@> and C<IEI<ver>User@> are refused. If set to C<trivial>
+then we just check that the address contains an @ char. If set to
+C<none>, then we do no checking. The default is C<none>.
+
+If the C<anonymous password enforce> option is set and the
+password fails the check above, then the user will not be allowed
+to log in. The default is 0 (unset).
+
+These options only have effect when C<allow anonymous> is set.
+
+Example:
+
+ anonymous password check: rfc822
+ anonymous password enforce: 1
+
+=item allow proxy ftp
+
+Allow proxy FTP. If this is set, then the FTP server can be told to
+actively connect to addresses and ports on any machine in the world.
+This is not such a great idea, but required if you follow the RFC
+very closely. If not set (the default), the FTP server will only
+connect back to the client machine.
+
+Default: 0
+
+Example: C<allow proxy ftp: 1>
+
+=item allow connect low port
+
+Allow the FTP server to connect back to ports E<lt> 1024. This is rarely
+useful and could pose a serious security hole in some circumstances.
+
+Default: 0
+
+Example: C<allow connect low port: 1>
+
+=item max login attempts
+
+Maximum number of login attempts before we drop the connection
+and issue a warning in the logs. Wu-ftpd defaults this to 5.
+
+Default: 3
+
+Example: C<max login attempts: 5>
+
+=item pam authentication
+
+Use PAM for authentication. Required on systems such as Red Hat Linux
+and Solaris which use PAM for authentication rather than the normal
+C</etc/passwd> mechanisms. You will need to have the Authen-PAM Perl
+module installed for this to work.
+
+Default: 0
+
+Example: C<pam authentication: 1>
+
+=item pam application name
+
+If PAM authentication is enabled, then this is the PAM application
+name. I have used C<ftp> as the default which is the same name
+that wu-ftpd chooses. FreeBSD users will want to use C<ftpd> here.
+
+Default: ftp
+
+Example: C<pam application name: ftpd>
+
+=item passive port range
+
+What range of local ports will the FTP server listen on in passive
+mode? Choose a range here like C<1024-5999,49152-65535>. The special
+value C<0> means that the FTP server will use a kernel-assigned
+ephemeral port.
+
+Default: 49152-65535
+
+Example: C<passive port range: 0>
+
+=item pidfile
+
+Location of the file to store the process ID (PID).
+Applies only to the deamonized process, not the child processes.
+
+Default: (no pidfile created)
+
+Example: C<pidfile: /var/run/ftpd.pid>
+
+=item client logging
+
+Location to store all client commands sent to the server.
+The format is the date, the pid, and the command.
+Following the pid is a "-" if not authenticated the
+username if the connection is authenticated.
+Example of before and after authentication:
+
+ [Wed Feb 21 18:41:32 2001][23818:-]USER rob
+ [Wed Feb 21 18:41:33 2001][23818:-]PASS 123456
+ [Wed Feb 21 18:41:33 2001][23818:*]SYST
+
+Default: (no logging)
+
+Examples:
+
+ client logging: /var/log/ftpd.log
+ client logging: /tmp/ftpd_log.$hostname
+
+=item enable syslog
+
+Enable syslogging. If set, then Net::FTPServer will send much
+information to syslog. On many systems, this information will
+be available in /var/log/messages or /var/adm/messages. If
+clear, syslogging is disabled.
+
+Default: 1
+
+Example: C<enable syslog: 0>
+
+=item ident timeout
+
+Timeout for ident authentication lookups.
+A timeout (in seconds) must be specified in order to
+enable ident lookups.  There is no way to specify an
+infinite timeout.  Use 0 to disable this feature.
+
+Default: 0
+
+Example: C<ident timeout: 10>
+
+=item access control rule
+
+=item user access control rule
+
+=item retrieve rule
+
+=item store rule
+
+=item delete rule
+
+=item list rule
+
+=item mkdir rule
+
+Access control rules.
+ 
+Access control rules are all specified as short snippets of
+Perl script. This allows the maximum configurability -- you
+can express just about any rules you want -- but at the price
+of learning a little Perl.
+
+You can use the following variables from the Perl:
+
+ $hostname      Resolved hostname of the client [1]
+ $ip            IP address of the client
+ $user          User name [2]
+ $user_is_anonymous  True if the user is an anonymous user [2]
+ $pathname      Full pathname of the file being affected [2]
+ $filename      Filename of the file being affected [2,3]
+ $dirname       Directory name containing file being affected [2]
+ $type          'A' for ASCII, 'B' for binary, 'L8' for local 8-bit
+ $form          Always 'N'
+ $mode          Always 'S'
+ $stru          Always 'F'
+
+Notes:
+
+[1] May be undefined, particularly if C<resolve addresses> is not set.
+
+[2] Not available in C<access control rule> since the user has not
+logged in at this point.
+
+[3] Not available for C<list directory rule>.
+
+Access control rule. The FTP server will not accept any connections
+from a site unless this rule succeeds. Note that only C<$hostname>
+and C<$ip> are available to this rule, and unless C<resolve addresses>
+and C<require resolved addresses> are both set C<$hostname> may
+be undefined.
+
+Default: 1
+
+Examples:
+
+ (a) Deny connections from *.badguys.com:
+
+     access control rule: defined ($hostname) && \
+                          $hostname !~ /\.badguys\.com$/
+
+ (b) Only allow connections from local network 10.0.0.0/24:
+
+     access control rule: $ip =~ /^10\./
+
+User access control rule. After the user logs in successfully,
+this rule is then called to determine if the user may be permitted
+access.
+
+Default: 1
+
+Examples:
+
+ (a) Only allow ``rich'' to log in from 10.x.x.x network:
+
+     user access control rule: $user ne "rich" || \
+                               $ip =~ /^10\./
+
+ (b) Only allow anonymous users to log in if they come from
+     hosts with resolving hostnames (``resolve addresses'' must
+     also be set):
+
+     user access control rule: !$user_is_anonymous || \
+                               defined ($hostname)
+
+ (c) Do not allow user ``jeff'' to log in at all:
+
+     user access control rule: $user ne "jeff"
+
+Retrieve rule. This rule controls who may retrieve (download) files.
+
+Default: 1
+
+Examples:
+
+ (a) Do not allow anyone to retrieve ``/etc/*'' or any file anywhere
+     called ``.htaccess'':
+
+     retrieve rule: $dirname !~ m|^/etc/| && $filename ne ".htaccess"
+
+ (b) Only allow anonymous users to retrieve files from under the
+     ``/pub'' directory.
+
+     retrieve rule: !$user_is_anonymous || $dirname =~ m|^/pub/|
+
+Store rule. This rule controls who may store (upload) files.
+
+In the anonymous read-only (ro-ftpd) personality, it is not
+possible to upload files anyway, so setting this rule has no
+effect.
+
+Default: 1
+
+Examples:
+
+ (a) Only allow users to upload files to the ``/incoming''
+     directory.
+
+     store rule: $dirname =~ m|^/incoming/|
+
+ (b) Anonymous users can only upload files to ``/incoming''
+     directory.
+
+     store rule: !$user_is_anonymous || $dirname =~ m|^/incoming/|
+
+ (c) Disable file upload.
+
+     store rule: 0
+
+Delete rule. This rule controls who may delete files or rmdir directories.
+
+In the anonymous read-only (ro-ftpd) personality, it is not
+possible to delete files anyway, so setting this rule has no
+effect.
+
+Default: 1
+
+Example: C<delete rule: 0>
+
+List rule. This rule controls who may list out the contents of a
+directory.
+
+Default: 1
+
+Example: C<list rule: $dirname =~ m|^/pub/|>
+
+Mkdir rule. This rule controls who may create a subdirectory.
+
+In the anonymous read-only (ro-ftpd) personality, it is not
+possible to create directories anyway, so setting this rule has
+no effect.
+
+Default: 1
+
+Example: C<mkdir rule: 0>
+
+=item chdir message file
+
+Change directory message file. If set, then the first time (per
+session) that a user goes into a directory which contains a file
+matching this name, that file will be displayed.
+
+The file may contain any of the % escape sequences available.
+See C<welcome text> documentation above.
+
+Default: (none)
+
+Example: C<chdir message file: .message>
+
+=item allow rename to overwrite
+
+Allow the rename (RNFR/RNTO) command to overwrite files. If unset,
+then we try to test whether the rename command would overwrite a
+file and disallow it. However there are some race conditions with
+this test.
+
+Default: 1
+
+Example: C<allow rename to overwrite: 0>
+
+=item allow store to overwrite
+
+Allow the store commands (STOR/STOU/APPE) to overwrite files. If unset,
+then we try to test whether the store command would overwrite a
+file and disallow it. However there are some race conditions with
+this test.
+
+Default: 1
+
+Example: C<allow store to overwrite: 0>
+
+=item alias
+
+Define an alias C<name> for directory C<dir>. For example, the command
+C<alias: mirror /pub/mirror> would allow the user to access the
+C</pub/mirror> directory directly just by typing C<cd mirror>.
+
+Aliases only apply to the cd (CWD) command. The C<cd foo> command checks
+for directories in the following order:
+
+ foo in the current directory
+ an alias called foo
+ foo in each directory in the cdpath (see ``cdpath'' command below)
+
+You may list an many aliases as you want.
+
+Alias names cannot contain slashes (/).
+
+Although alias dirs may start without a slash (/), this is unwise and
+itE<39>s better that they always start with a slash (/) char.
+
+General format: C<alias: I<name> I<dir>>
+
+=item cdpath
+
+Define a search path which is used when changing directories. For
+example, the command C<cdpath: /pub/mirror /pub/sites> would allow
+the user to access the C</pub/mirror/ftp.cpan.org> directory
+directly by just typing C<cd ftp.cpan.org>.
+
+The C<cd foo> command checks for directories in the following order:
+
+ foo in the current directory
+ an alias called foo (see ``alias'' command above)
+ foo in each directory in the cdpath
+
+General format: C<cdpath: I<dir1> [I<dir2> [I<dir3> ...]]>
+
+=item allow site version command
+
+SITE VERSION command. If set, then the SITE VERSION command reveals
+the current Net::FTPServer version string. If unset, then the command
+is disabled.
+
+Default: 1
+
+Example: C<allow site version command: 0>
+
+=item allow site exec command
+
+SITE EXEC command. If set, then the SITE EXEC command allows arbitrary
+commands to be executed on the server as the current user. If unset,
+then this command is disabled. The default is disabled for obvious
+security reasons.
+
+If you do allow SITE EXEC, you may need to increase the per process
+memory, processes and files limits above.
+
+Default: 0
+
+Example: C<allow site exec command: 1>
+
+=item site command
+
+Custom SITE commands. Use this command to define custom SITE
+commands. Please read the section LOADING CUSTOMIZED SITE
+COMMANDS in this manual page for more detailed information.
+
+The C<site command> command has the form:
+
+C<site command: I<cmdname> I<file>>
+
+I<cmdname> is the name of the command (eg. for SITE README you
+would set I<cmdname> == C<readme>). I<file> is a file containing the
+code of the site command in the form of an anonymous Perl
+subroutine. The file should have the form:
+
+ sub {
+   my $self = shift;		# The FTPServer object.
+   my $cmd = shift;		# Contains the command itself.
+   my $rest = shift;		# Contains any parameters passed by the user.
+
+      :     :
+      :     :
+
+   $self->reply (RESPONSE_CODE, RESPONSE_TEXT);
+ }
+
+You may define as many site commands as you want. You may also
+override site commands from the current personality here.
+
+Example:
+
+ site command: quota /usr/local/lib/ftp/quota.pl
+
+and the file C</usr/local/lib/ftp/quota.pl> contains:
+
+ sub {
+   my $self = shift;		# The FTPServer object.
+   my $cmd = shift;		# Contains "QUOTA".
+   my $rest = shift;		# Contains parameters passed by user.
+
+   # ... Some code to compute the user's quota ...
+
+   $self->reply (200, "Your quota is $quota MB.");
+ }
+
+The client types C<SITE QUOTA> and the server responds with:
+
+ "200 Your quota is 12.5 MB.".
+
+=item E<lt>Host hostnameE<gt> ... E<lt>/HostE<gt>
+
+E<lt>Host hostnameE<gt> ... E<lt>/HostE<gt> encloses
+commands which are applicable only to a particular
+host. C<hostname> may be either a fully-qualified
+domain name (for IP-less virtual hosts) or an IP
+address (for IP-based virtual hosts). You should read
+the section VIRTUAL HOSTS in this manual page for
+more information on the different types of virtual
+hosts and how to set it up in more detail.
+
+Note also that unless you have set C<enable virtual hosts: 1>,
+all E<lt>HostE<gt> sections will be ignored.
+
+=item enable virtual hosts
+
+Unless this option is uncommented, virtual hosting is disabled
+and the E<lt>HostE<gt> sections in the configuration file have no effect.
+
+Default: 0
+
+Example: C<enable virtual hosts: 1>
+
+=item virtual host multiplex
+
+IP-less virtual hosts. If you want to enable IP-less virtual
+hosts, then you must set up your DNS so that all hosts map
+to a single IP address, and place that IP address here. This
+is roughly equivalent to the Apache C<NameVirtualHost> option.
+
+IP-less virtual hosting is an experimental feature which
+requires changes to clients.
+
+Default: (none)
+
+Example: C<virtual host multiplex: 1.2.3.4>
+
+Example E<lt>HostE<gt> section. Allow the dangerous SITE EXEC command
+on local connections. (Note that this is still dangerous).
+
+ <Host localhost.localdomain>
+   ip: 127.0.0.1
+   allow site exec command: 1
+ </Host>
+
+Example E<lt>HostE<gt> section. This shows you how to do IP-based
+virtual hosts. I assume that you have set up your DNS so that
+C<ftp.bob.example.com> maps to IP C<1.2.3.4> and C<ftp.jane.example.com>
+maps to IP C<1.2.3.5>, and you have set up suitable IP aliasing
+in the kernel.
+
+You do not need the C<ip:> command if you have configured reverse
+DNS correctly AND you trust your local DNS servers.
+
+ <Host ftp.bob.example.com>
+   ip: 1.2.3.4
+   root directory: /home/bob
+   home directory: /
+   user access control rule: $user eq "bob"
+   maintainer email: bob@bob.example.com
+ </Host>
+
+ <Host ftp.jane.example.com>
+   ip: 1.2.3.5
+   root directory: /home/jane
+   home directory: /
+   allow anonymous: 1
+   user access control rule: $user_is_anonymous
+   maintainer email: jane@jane.example.com
+ </Host>
+
+These rules set up two virtual hosts called C<ftp.bob.example.com>
+and C<ftp.jane.example.com>. The former is located under bob's
+home directory and only he is allowed to log in. The latter is
+located under jane's home directory and only allows anonymous
+access.
+
+Example E<lt>HostE<gt> section. This shows you how to do IP-less
+virtual hosts. Note that IP-less virtual hosts are a highly
+experimental feature, and require the client to support the
+HOST command.
+
+You need to set up your DNS so that both C<ftp.bob.example.com>
+and C<ftp.jane.example.com> point to your own IP address.
+
+ virtual host multiplex: 1.2.3.4
+
+ <Host ftp.bob.example.com>
+   root directory: /home/bob
+   home directory: /
+   user access control rule: $user eq "bob"
+ </Host>
+
+ <Host ftp.jane.example.com>
+   root directory: /home/jane
+   home directory: /
+   allow anonymous: 1
+   user access control rule: $user_is_anonymous
+ </Host>
+
+=item log socket type
+
+Socket type for contacting syslog. This is the argument to
+the C<Sys::Syslog::setlogsock> function.
+
+Default: unix
+
+Example: C<log socket type: inet>
+
+=item listen queue
+
+Length of the listen queue when running in daemon mode.
+
+Default: 10
+
+Example: C<listen queue: 20>
+
+=item tcp window
+
+Set TCP window. See RFC 2415
+I<Simulation Studies of Increased Initial TCP Window Size>.
+This setting only affects the data
+socket. ItE<39>s not likely that you will need to or should change
+this setting from the system-specific default.
+
+Default: (system-specific TCP window size)
+
+Example: C<tcp window: 4380>
+
+=item tcp keepalive
+
+Set TCP keepalive.
+
+Default: (system-specific keepalive setting)
+
+Example: C<tcp keepalive: 1>
+
+=item command filter
+
+Command filter. If set, then all commands are checked against
+this regular expression before being executed. If a command
+doesnE<39>t match the filter, then the command connection is
+immediately dropped. This is equivalent to the C<AllowFilter>
+command in ProFTPD. Remember to include C<^...$> around the filter.
+
+Default: (no filter)
+
+Example: C<command filter: ^[A-Za-z0-9 /]+$>
+
+=item command wait
+
+Go slow. If set, then the server will sleep for this many seconds
+before beginning to process each command. This command would be
+a lot more useful if you could apply it only to particular
+classes of connection.
+
+Default: (no wait)
+
+Example: C<command wait: 5>
+
+=item no authentication commands
+
+The list of commands which a client may issue before they have
+authenticated themselves is very limited. Obviously C<USER> and
+C<PASS> are allowed (otherwise a user would never be able to log
+in!), also C<QUIT>, C<LANG>, C<HOST> and C<FEAT>. C<HELP> is also permitted
+(although dubious). Any other commands not on this list will
+result in a I<530 Not logged in.> error.
+
+This list ought to contain at least C<USER>, C<PASS> and C<QUIT>
+otherwise the server wonE<39>t be very functional.
+
+Some commands cannot be added here -- eg. adding C<CWD> or C<RETR>
+to this list is likely to make the FTP server crash, or else enable
+users to read files only available to root. Hence use this with
+great care.
+
+Default: USER PASS QUIT LANG HOST FEAT HELP
+
+Example: C<no authentication commands: USER PASS QUIT>
+
+=back 4
 
 =head2 LOADING CUSTOMIZED SITE COMMANDS
 
@@ -326,7 +1244,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.58 2001/04/10 09:33:30 rich Exp $
+  200-$Id: FTPServer.pm,v 1.71 2001/05/29 17:43:49 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -616,13 +1534,13 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.7';
+$VERSION = '1.0.14';
 $RELEASE = 1;
 
 use Config;
 use Getopt::Long qw(GetOptions);
 use Sys::Hostname;
-use Sys::Syslog qw(:DEFAULT setlogsock);
+use Sys::Syslog qw();
 use Socket;
 use IO::Socket;
 use IO::File;
@@ -761,52 +1679,60 @@ sub run
     $self->post_configuration_hook;
 
     # Open syslog.
-    if (defined $self->config ("log socket type")) {
-      setlogsock $self->config ("log socket type")
-    } else {
-      setlogsock "unix";
-    }
+    $self->{_enable_syslog} =
+      (!defined $self->config ("enable syslog") ||
+       $self->config ("enable syslog")) &&
+      !$self->{_test_mode};
 
-    openlog "ftpd", "pid", "daemon";
-    syslog "info", "%s running", $self->{version_string};
+    if ($self->{_enable_syslog})
+      {
+	if (defined $self->config ("log socket type")) {
+	  Sys::Syslog::setlogsock $self->config ("log socket type")
+	} else {
+	  Sys::Syslog::setlogsock "unix";
+	}
+
+	Sys::Syslog::openlog "ftpd", "pid", "daemon";
+	$self->syslog ("info", "%s running", $self->{version_string});
+      }
 
     # Set up a hook for warn and die so that these cause messages to
     # be echoed to the syslog.
     $SIG{__WARN__} = sub {
-      syslog "warning", $_[0];
+      $self->syslog ("warning", $_[0]);
       warn $_[0];
     };
     $SIG{__DIE__} = sub {
-      syslog "err", $_[0];
+      $self->syslog ("err", $_[0]);
       die $_[0];
     };
 
     # Set up signal handlers to give us a clean exit.
     # XXX Are these inherited?
     $SIG{PIPE} = sub {
-      syslog "info", "client closed connection abruptly";
+      $self->syslog ("info", "client closed connection abruptly");
       exit;
     };
     $SIG{TERM} = sub {
-      syslog "info", "exiting on TERM signal";
+      $self->syslog ("info", "exiting on TERM signal");
       $self->reply (421, "Manual shutdown from server");
       $self->_log_line ("[TERM RECEIVED]");
       exit;
     };
     $SIG{INT} = sub {
-      syslog "info", "exiting on keyboard INT signal";
+      $self->syslog ("info", "exiting on keyboard INT signal");
       exit;
     };
     $SIG{QUIT} = sub {
-      syslog "info", "exiting on keyboard QUIT signal";
+      $self->syslog ("info", "exiting on keyboard QUIT signal");
       exit;
     };
     $SIG{HUP} = sub {
-      syslog "info", "exiting on HUP signal";
+      $self->syslog ("info", "exiting on HUP signal");
       exit;
     };
     $SIG{ALRM} = sub {
-      syslog "info", "exiting on ALRM signal";
+      $self->syslog ("info", "exiting on ALRM signal");
       print "421 Server closed the connection after idle timeout.\r\n";
       $self->_log_line ("[TIMED OUT!]");
       exit;
@@ -854,15 +1780,15 @@ sub run
 	    if (ref $sub eq "CODE") {
 	      $self->{site_command_table}{uc $cmdname} = $sub;
 	    } else {
-	      syslog "err", "site command: $filename: must return an anonymous subroutine when evaluated (skipping)";
+	      $self->syslog ("err", "site command: $filename: must return an anonymous subroutine when evaluated (skipping)");
 	    }
 	  }
 	else
 	  {
 	    if ($!) {
-	      syslog "err", "site command: $filename: $! (ignored)"
+	      $self->syslog ("err", "site command: $filename: $! (ignored)")
 	    } else {
-	      syslog "err", "site command: $filename: $@ (ignored)"
+	      $self->syslog ("err", "site command: $filename: $@ (ignored)")
 	    }
 	  }
       }
@@ -883,7 +1809,7 @@ sub run
 	$self->_save_pid;
 
 	local $SIG{TERM} = sub {
-	  syslog "info", "shutting down daemon";
+	  $self->syslog ("info", "shutting down daemon");
 	  $self->_log_line ("[DAEMON Shutdown]");
 	  exit;
 	};
@@ -912,7 +1838,7 @@ sub run
 	  # Preserve the new file descriptor until exec is called.
 	  $self->{_hup} = $fake;
 
-	  syslog "info", "received SIGHUP, Reloading configuration";
+	  $self->syslog ("info", "received SIGHUP, Reloading configuration");
 	  $self->_log_line ("[DAEMON Reloading configuration]");
 	};
 
@@ -972,13 +1898,15 @@ sub run
 	      {
 		if ($sitename)
 		  {
-		    syslog "info",
-			   "IP-based virtual hosts: set site to $sitename";
+		    $self->syslog ("info",
+				   "IP-based virtual hosts: ".
+				   "set site to $sitename");
 		  }
 		else
 		  {
-		    syslog "info",
-			   "IP-based virtual hosts: no site found";
+		    $self->syslog ("info",
+				   "IP-based virtual hosts: ".
+				   "no site found");
 		  }
 	      }
 	  }
@@ -987,14 +1915,18 @@ sub run
     # Get the peername and other details of this socket.
     my ($peername, $peerport, $peeraddr, $peeraddrstring);
 
-    unless ($self->{_test_mode})
+    if ( $peername = getpeername STDIN )
       {
-	$peername = getpeername STDIN;
 	($peerport, $peeraddr) = unpack_sockaddr_in ($peername);
 	$peeraddrstring = inet_ntoa ($peeraddr);
-	$self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport]");
+      }
+    else
+      {
+	$peerport = 0;
+	$peeraddr = inet_aton ( $peeraddrstring = "127.0.0.1" );
       }
 
+    $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport]");
     # Resolve the address.
     my $peerhostname;
     if ($self->config ("resolve addresses"))
@@ -1013,9 +1945,9 @@ sub run
 
 	if ($self->config ("require resolved addresses") && !$peerhostname)
 	  {
-	    syslog "err",
-	    "cannot resolve address for connection from " .
-	    "$peeraddrstring:$peerport";
+	    $self->syslog ("err",
+			   "cannot resolve address for connection from " .
+			   "$peeraddrstring:$peerport");
 	    exit 0;
 	  }
       }
@@ -1111,7 +2043,7 @@ sub run
 	    "$peerhostname:$peerport ($peeraddrstring:$peerport)" :
 	    "$peeraddrstring:$peerport";
 
-	syslog "info", "connection from $peerinfodpy";
+	$self->syslog ("info", "connection from $peerinfodpy");
 
 	# Change name of process in process listing.
 	unless (defined $self->config ("change process name") &&
@@ -1181,7 +2113,7 @@ sub run
 	    # Took too long to connect to remote auth port
 	    # (probably because of a client-side firewall).
 	    $self->_log_line ("[Ident auth failed: connection timed out]");
-	    syslog "warning", "ident auth failed for $self->{peeraddrstring}: connection timed out";
+	    $self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: connection timed out");
 	  }
 	else
 	  {
@@ -1205,7 +2137,7 @@ sub run
 		if ($got_bored)
 		  {
 		    $self->_log_line ("[Ident auth failed: response timed out]");
-		    syslog "warning", "ident auth failed for $self->{peeraddrstring}: response timed out";
+		    $self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: response timed out");
 		  }
 		else
 		  {
@@ -1213,19 +2145,19 @@ sub run
 		      {
 			$self->{auth} = $1;
 			$self->_log_line ("[IDENT AUTH VERIFIED: $self->{auth}\@$self->{peeraddrstring}]");
-			syslog "info", "ident auth: $self->{auth}\@$self->{peeraddrstring}";
+			$self->syslog ("info", "ident auth: $self->{auth}\@$self->{peeraddrstring}");
 		      }
 		    else
 		      {
 			$self->_log_line ("[Ident auth failed: invalid response]");
-			syslog "warning", "ident auth failed for $self->{peeraddrstring}: invalid response";
+			$self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: invalid response");
 		      }
 		  }
 	      }
 	    else
 	      {
 		$self->_log_line ("[Ident auth failed: Connection refused]");
-		syslog "warning", "ident auth failed for $self->{peeraddrstring}: Connection refused";
+		$self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: Connection refused");
 	      }
 	  }
       }
@@ -1313,16 +2245,16 @@ sub run
 	# See also RFC 2640 section 3.1.
 	unless (m/^([A-Z]{3,4})\s?(.*)/i)
 	  {
-	    syslog "err",
-	    "badly formed command received: %s", _escape($_);
+	    $self->syslog ("err",
+			   "badly formed command received: %s", _escape($_));
 	    $self->_log_line ("[Badly formed command]", _escape($_));
 	    exit 0;
 	  }
 
 	my ($cmd, $rest) = (uc $1, $2);
 
-	syslog "info", "command: (%s, %s)",
-	  _escape($cmd), _escape($rest)
+	$self->syslog ("info", "command: (%s, %s)",
+		       _escape($cmd), _escape($rest))
 	  if $self->{debug};
 
 	# Command requires user to be authenticated?
@@ -1337,7 +2269,8 @@ sub run
 	unless (exists $self->{command_table}{$cmd})
 	  {
 	    $self->reply (500, "Unrecognized command.");
-	    syslog "err", "unknown command received: %s", _escape($_);
+	    $self->syslog ("err",
+			   "unknown command received: %s", _escape($_));
 	    next;
 	  }
 
@@ -1349,7 +2282,7 @@ sub run
       }
 
     $self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
-    syslog "info", "connection terminated normally";
+    $self->syslog ("info", "connection terminated normally");
   }
 
 # Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
@@ -1480,7 +2413,7 @@ sub _fork_into_background
 #    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
 #    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
 
-    syslog "info", "forked into background";
+    $self->syslog ("info", "forked into background");
   }
 
 # Be a daemon (command line -s option).
@@ -1489,7 +2422,7 @@ sub _be_daemon
   {
     my $self = shift;
 
-    syslog "info", "operating in daemon mode";
+    $self->syslog ("info", "operating in daemon mode");
     $self->_log_line ("[DAEMON Started]");
 
     # Discover the default FTP port from /etc/services or equivalent.
@@ -1587,7 +2520,8 @@ sub _be_daemon
 	  {
 	    if ($pid == 0)		# Child process.
 	      {
-		syslog "info", "starting child process" if $self->{debug};
+		$self->syslog ("info", "starting child process")
+		  if $self->{debug};
 
 		# Shutdown accepting file descriptor to allow successful
 		# port bind() in case of a future daemon restart
@@ -1760,7 +2694,24 @@ sub reply
 	print $code, " ", $_[@_-1], "\r\n";
       }
 
-    syslog "info", "reply: $code" if $self->{debug};
+    $self->syslog ("info", "reply: $code") if $self->{debug};
+  }
+
+=item $ftps->syslog ($level, $message, ...);
+
+This function is identical to the normal C<syslog> function
+to be found in C<Sys::Syslog>. However, it only uses syslog
+if the C<enable syslog> configuration option is set to true.
+
+Use this function instead of calling C<syslog> directly.
+
+=cut
+
+sub syslog
+  {
+    my $self = shift;
+
+    Sys::Syslog::syslog @_ if $self->{_enable_syslog};
   }
 
 =pod
@@ -2025,9 +2976,9 @@ sub _PASS_command
 	if ($self->{loginattempts} >=
 	    ($self->config ("max login attempts") || 3))
 	  {
-	    syslog "notice", "repeated login attempts from %s:%d",
-	    $self->{peeraddrstring},
-	    $self->{peerport};
+	    $self->syslog ("notice", "repeated login attempts from %s:%d",
+			   $self->{peeraddrstring},
+			   $self->{peerport});
 
 	    # See RFC 2577 section 5.
 	    $self->reply (421, "Too many login attempts. Goodbye.");
@@ -2146,9 +3097,6 @@ sub _PASS_command
     setpwent;
     setgrent;
 
-    # Open /etc/group (see _drop_privs function below).
-    $self->{_group_handle} = new IO::File "/etc/group";
-
     # Perform chroot, etc., as required.
     $self->user_login_hook ($self->{user},
 			    $self->{user_is_anonymous});
@@ -2165,7 +3113,8 @@ sub _PASS_command
       }
     else
       {
-	syslog "warning", "no home directory for user: $self->{user}";
+	$self->syslog ("warning",
+		       "no home directory for user: $self->{user}");
       }
 
   }
@@ -2224,11 +3173,9 @@ sub _anon_passwd_validate_trivial
   }
 
 # Assuming we are running as root, drop privileges and change
-# to user called $username who has uid $uid and gid $gid. This
-# is complicated a lot by the fact that Perl doesn't call
-# initgroups implicitly, and doesn't have an interface to the
-# initgroups functions, so we have to grok /etc/group by hand
-# which is ugly, and probably won't work with NIS, etc. Yuk.
+# to user called $username who has uid $uid and gid $gid. There
+# is no interface to initgroups, so we have to do that by
+# hand -- yuck.
 sub _drop_privs
   {
     my $self = shift;
@@ -2239,23 +3186,19 @@ sub _drop_privs
     # Get the list of extra groups to pass to setgroups(2).
     my @groups = ();
 
-    if (defined $self->{_group_handle})
+    my @g;
+    while (@g = getgrent)
       {
-	while ($_ = $self->{_group_handle}->getline)
+	my ($gr_name, $gr_passwd, $gr_gid, $gr_members) = @g;
+	my @members = split /\s+/, $gr_members;
+
+	foreach (@members)
 	  {
-	    s/[\n\r]+$//;
-
-	    my ($name, $pw, $gid, $members) = split /:/, $_;
-	    my @members = split /,/, $members;
-
-	    foreach (@members)
-	      {
-		push @groups, $gid if $_ eq $username;
-	      }
+	    push @groups, $gr_gid if $_ eq $username;
 	  }
-
-	$self->{_group_handle}->seek (0, 0);
       }
+
+    setgrent;			# Rewind the pointer.
 
     # Set the effective GID/UID.
     $) = join (" ", $gid, $gid, @groups);
@@ -2362,7 +3305,7 @@ sub _chdir_message
     my $filename = $self->config ("chdir message file");
     my $file;
 
-    if (defined $filename &&
+    if ($filename &&
 	! exists $self->{_chdir_message_cache}{$self->{cwd}->pathname} &&
 	($file = $self->{cwd}->open ($filename, "r")))
       {
@@ -2418,7 +3361,7 @@ sub _QUIT_command
     my $rest = shift;
 
     $self->reply (221, "Goodbye. Service closing connection.");
-    syslog "info", "connection terminated normally";
+    $self->syslog ("info", "connection terminated normally");
 
     my $host =
       ! $self->{_test_mode}
@@ -3167,9 +4110,19 @@ sub _NLST_command
     my $rest = shift;
 
     # This is something of a hack. Some clients expect a Unix server
-    # to respond to flags on the 'ls command line'. Remove these flags
-    # and ignore them. This is particularly an issue with ncftp 2.4.3.
-    $rest =~ s/^-[a-zA-Z0-9]+\s?//;
+    # to respond to flags on the 'ls command line'.
+    # Handle the "-l" flag by just calling LIST instead of NLST.
+    # This is particularly an issue with ncftp 2.4.3,
+    # emacs / Ange-ftp, commandline "ftp" on Windows Platform,
+    # netftp, and some old versions of WSFTP.  I would think that if
+    # the client wants a nice pretty listing, that they should use
+    # the LIST command, but for some reasons they insist on trying
+    # to pass arguments to NLST and expect them to work.
+    # Examples:
+    # NLST -al /.
+    # NLST -AL *.htm
+    return $self->_LIST_command ($cmd, $rest) if $rest =~ /^\-\w*l/i;
+    $rest =~ s/^-\w+\s?//;
 
     my ($dirh, $wildcard, $fileh, $filename)
       = $self->_list ($rest);
@@ -4409,7 +5362,10 @@ sub _get
       }
 
     # Get the file handle.
-    my $fileh = $dirh->get ($filename);
+    my $fileh =
+      ($filename eq ".") ? $dirh :
+        ($filename eq "..") ? $dirh->parent :
+          $dirh->get($filename);
 
     return ($dirh, $fileh, $filename);
   }
@@ -5074,12 +6030,16 @@ and bugs.
 
 =head1 AUTHORS
 
-Richard Jones (rich@annexia.org).
+Richard Jones (rich@annexia.org),
+Rob Brown (rbrown at about-inc.com),
+Azazel (azazel at azazel.net).
 
 =head1 COPYRIGHT
 
 Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
 London, SW6 3EG, UK
+
+Copyright (C) 2000-2001 Richard Jones (rich@annexia.org).
 
 =head1 SEE ALSO
 

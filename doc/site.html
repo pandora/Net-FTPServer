@@ -21,11 +21,72 @@
 	      <td>
 		<h3>News</h3>
 
+		<p><b>Wed May 30 11:09:12 BST 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.14.tar.gz">Version 1.0.14</a>
+		  released. Documentation for <code>/etc/ftpd.conf</code>
+		  options moved into the
+		  <a href="Net%3A%3AFTPServer.html">manual page</a>.
+		  This aids maintenance considerably.
+		</p>
+
+		<p><b>Tue May 29 18:30:48 BST 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.12.tar.gz">Version 1.0.12</a>
+		  released. This contains a small featurette suggested
+		  by Rob. You can now disable syslogging from the
+		  configuration file. During the automatic tests
+		  (<code>make test</code>),
+		  syslogging is now disabled by default.
+		</p>
+
+		<p><b>Tue May 29 17:52:37 BST 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.11.tar.gz">Version 1.0.11</a>
+		  released. If <code>getpwuid</code> or <code>getgrgid</code>
+		  cannot resolve a user ID / group ID into a username
+		  or group name, then we print "-" instead, rather than
+		  generating an annoying warning message. Thanks
+		  go to Elliot Finley and Matthias Ivers who both
+		  spotted the bug at about the same time!
+		</p>
+
+		<p><b>Tue May 29 11:32:14 BST 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.10.tar.gz">Version 1.0.10</a>
+		  released. Several patches from Rob which fix
+		  warnings and a bug which would crash the server child
+		  process when a user did <code>SIZE .</code> and similar.
+		</p>
+
+		<p><b>Wed Apr 18 18:28:22 BST 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.9.tar.gz">Version 1.0.9</a>
+		  released. Patch from Rob: <code>ls -al</code>, issued
+		  from the Windows command line FTP client, now gives
+		  a pretty listing. This also worksaround a number of
+		  other clients which like to issue (incorrect) commands
+		  like: <code>NLST -al</code>.
+		</p>
+
+		<p><b>Wed Apr 11 17:33:51 BST 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.8.tar.gz">Version 1.0.8</a>
+		  released. Don't use <code>/etc/group</code>
+		  directly -- use <code>getgrent</code> instead.
+		</p>
+
 		<p><b>Wed Apr 11 10:32:55 BST 2001</b></p>
 
 		<p>
 		  <a href="files/Net-FTPServer-1.0.7.tar.gz">Version 1.0.7</a>
-		  release. Keep <code>/etc/group</code> open
+		  released. Keep <code>/etc/group</code> open
 		  across <code>chroot</code>.
 		</p>
 
@@ -37,95 +98,6 @@
 		  Rich (thanks to Matthew Gabeler-Lee for pointing
 		  out the problem). Small changes to logging usernames
 		  by Rob.
-		</p>
-
-		<p><b>Fri Mar 23 10:49:17 GMT 2001</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-1.0.4.tar.gz">Version 1.0.4</a>
-		  released. A small patch from Rob Brown which
-		  avoids the server leaving zombie processes
-		  lying around in some situations.
-		</p>
-
-		<p><b>Fri Mar  2 11:04:17 GMT 2001</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-1.0.3.tar.gz">Version 1.0.3</a>
-		  released. This version contains patches to make the
-		  full server work correctly on OpenBSD. (Thanks
-		  to Azazel).
-		</p>
-
-		<p><b>Wed Feb 28 16:40:11 GMT 2001</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-1.0.2.tar.gz">Version 1.0.2</a>
-		  released. This contains some necessary bugfixes over
-		  the 1.0.0 and 1.0.1 releases.
-		  <a href="http://www.annexia.org/cgi-bin/autopatch.pl?dir=ftp">Patch
-		    to this version</a> if you
-		  had problems with those releases. (Thanks to Rob
-		  Brown for these fixes).
-		</p>
-
-		<p><b>Tue Feb 27 10:43:44 GMT 2001</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-1.0.1.tar.gz">Version 1.0.1</a>
-		  released. I've done next to nothing for this release,
-		  but Rob Brown has been at it again, producing a
-		  beautiful series of bug fixes and enhancements.
-		  In no particular order:
-		  Avoid hard coded "." and ".." entries in directories.
-		  Logging is taint-clean in Perl 5.005. Don't log
-		  out-of-band data into client log.
-		  Added ident (RFC 1413) logging for increased security.
-		  Added "time zone" configuration file option so
-		  that dates and times can appear in zones other
-		  than GMT.
-		  Allow parent daemon to be restarted
-		  cleanly even if there are child daemons still
-		  left over from the previous process.
-		  Sending SIGHUP causes the parent process to cleanly
-		  restart, reload configuration files and reopen
-		  client logging file (this even works if the
-		  daemon has bound to a low-numbered port and dropped
-		  priviledges).
-		</p>
-
-		<p><b>Thu Feb 22 17:14:22 GMT 2001</b></p>
-
-		<p>
-		  <b><a href="files/Net-FTPServer-1.0.0.tar.gz">Version
-		      1.0.0</a> released!</b> Go and read our
-		  <a href="press1.0.txt">press release</a>.
-		</p>
-
-		<p>
-		  Fixed for this release by Rich: <tt>STOU</tt>
-		  now works. Listing
-		  files by wildcard now works in the "in memory"
-		  personality. Added
-		  <tt>STOR</tt>/<tt>STOU</tt>/<tt>APPE</tt> tests. Added
-		  <tt>LIST</tt>/<tt>NLST</tt> tests. Added
-		  <tt>SITE IDLE</tt> test. Added <tt>SITE
-		  VERSION</tt> test. Added <tt>REST</tt> test.
-		  Added <tt>RNFR/RNTO</tt>
-		  test. Added <tt>ABOR</tt> test. Added "no authentication
-		  commands" configuration option.
-		</p>
-
-		<p>
-		  Fixed for this release by Rob Brown: "Client logging"
-		  feature. Distinguish between sending TERM to the
-		  daemonized process and to the child processes.
-		  Implement <tt>ABOR</tt>-ted transfers using SIGURG.
-		  Added <tt>post_bind_hook</tt>.
-		  DoS attack avoided by reseting
-		  the alarm after read and before write. Abort if
-		  configuration file is missing. Added
-		  <tt>transfer_hook</tt>.
 		</p>
 
 		<p align="right"><a href="oldnews.html">Old news ...</a></p>
@@ -193,6 +165,12 @@
 		  host this site. The Bibliotech Net::FTPServer
 		  is used as part of
 		  <a href="http://www.schoolmaster.net/">schoolmaster.net</a>.
+		</p>
+
+		<p>
+		  Please read <a href="press1.0.txt">the press release
+		    for version 1.0</a>.
+		</p>
 
 	      </td>
 	    </tr>
@@ -217,7 +195,7 @@
 
 		<p>
 		  Latest stable version:
-		  <a href="files/Net-FTPServer-1.0.6.tar.gz">1.0.6</a>
+		  <a href="files/Net-FTPServer-1.0.14.tar.gz">1.0.14</a>
 		</p>
 
 		<p align="right">
@@ -226,6 +204,11 @@
 
 		<p align="right">
 		  <a href="files/">Previous versions ...</a>
+		</p>
+
+		<p align="right">
+		  <a href="Net%3A%3AFTPServer.html">The Net::FTPServer(3)
+		    manual page ...</a>
 		</p>
 
 	      </td>
@@ -308,11 +291,6 @@
 		    <a href="http://cr.yp.to/ftp.html">Dan Bernstein's
 		      description of FTP</a> as found ``in the wild''.
 		</ul>
-
-		<p>
-		  <i>Note that the package contains all the relevant
-		    RFCs and Internet Drafts.</i>
-		</p>
 	      </td>
 	    </tr>
 	  </table>
@@ -326,7 +304,7 @@
     <address><a href="mailto:rich@annexia.org">rich@annexia.org</a></address>
 <!-- Created: Fri Sep  8 10:43:32 BST 2000 -->
 <!-- hhmts start -->
-Last modified: Wed Apr 11 10:33:33 BST 2001
+Last modified: Wed May 30 11:11:05 BST 2001
 <!-- hhmts end -->
   </body>
 </html>

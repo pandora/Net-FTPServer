@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.2 2001/02/23 00:22:30 rbrown Exp $
+# $Id: DirHandle.pm,v 1.3 2001/05/25 20:42:15 rbrown Exp $
 
 =pod
 
@@ -157,7 +157,7 @@ sub list
 
 =item $ref = $dirh->_list_status ([$wildcard]);
 
-Just a dumb wrapper function.  Returns the same this as
+Just a dumb wrapper function.  Returns the same thing as
 list_status(), but also includes the special directories
 "." and ".." if no wildcard is specified.
 

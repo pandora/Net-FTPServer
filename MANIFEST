@@ -1,4 +1,5 @@
 .cvsignore
+AUTHORS
 Build
 Build.local
 COPYING

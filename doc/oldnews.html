@@ -7,6 +7,95 @@
   <body bgcolor="#ffffee">
     <h1>Old news</h1>
 
+		<p><b>Fri Mar 23 10:49:17 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.4.tar.gz">Version 1.0.4</a>
+		  released. A small patch from Rob Brown which
+		  avoids the server leaving zombie processes
+		  lying around in some situations.
+		</p>
+
+		<p><b>Fri Mar  2 11:04:17 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.3.tar.gz">Version 1.0.3</a>
+		  released. This version contains patches to make the
+		  full server work correctly on OpenBSD. (Thanks
+		  to Azazel).
+		</p>
+
+		<p><b>Wed Feb 28 16:40:11 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.2.tar.gz">Version 1.0.2</a>
+		  released. This contains some necessary bugfixes over
+		  the 1.0.0 and 1.0.1 releases.
+		  <a href="http://www.annexia.org/cgi-bin/autopatch.pl?dir=ftp">Patch
+		    to this version</a> if you
+		  had problems with those releases. (Thanks to Rob
+		  Brown for these fixes).
+		</p>
+
+		<p><b>Tue Feb 27 10:43:44 GMT 2001</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-1.0.1.tar.gz">Version 1.0.1</a>
+		  released. I've done next to nothing for this release,
+		  but Rob Brown has been at it again, producing a
+		  beautiful series of bug fixes and enhancements.
+		  In no particular order:
+		  Avoid hard coded "." and ".." entries in directories.
+		  Logging is taint-clean in Perl 5.005. Don't log
+		  out-of-band data into client log.
+		  Added ident (RFC 1413) logging for increased security.
+		  Added "time zone" configuration file option so
+		  that dates and times can appear in zones other
+		  than GMT.
+		  Allow parent daemon to be restarted
+		  cleanly even if there are child daemons still
+		  left over from the previous process.
+		  Sending SIGHUP causes the parent process to cleanly
+		  restart, reload configuration files and reopen
+		  client logging file (this even works if the
+		  daemon has bound to a low-numbered port and dropped
+		  priviledges).
+		</p>
+
+		<p><b>Thu Feb 22 17:14:22 GMT 2001</b></p>
+
+		<p>
+		  <b><a href="files/Net-FTPServer-1.0.0.tar.gz">Version
+		      1.0.0</a> released!</b> Go and read our
+		  <a href="press1.0.txt">press release</a>.
+		</p>
+
+		<p>
+		  Fixed for this release by Rich: <tt>STOU</tt>
+		  now works. Listing
+		  files by wildcard now works in the "in memory"
+		  personality. Added
+		  <tt>STOR</tt>/<tt>STOU</tt>/<tt>APPE</tt> tests. Added
+		  <tt>LIST</tt>/<tt>NLST</tt> tests. Added
+		  <tt>SITE IDLE</tt> test. Added <tt>SITE
+		  VERSION</tt> test. Added <tt>REST</tt> test.
+		  Added <tt>RNFR/RNTO</tt>
+		  test. Added <tt>ABOR</tt> test. Added "no authentication
+		  commands" configuration option.
+		</p>
+
+		<p>
+		  Fixed for this release by Rob Brown: "Client logging"
+		  feature. Distinguish between sending TERM to the
+		  daemonized process and to the child processes.
+		  Implement <tt>ABOR</tt>-ted transfers using SIGURG.
+		  Added <tt>post_bind_hook</tt>.
+		  DoS attack avoided by reseting
+		  the alarm after read and before write. Abort if
+		  configuration file is missing. Added
+		  <tt>transfer_hook</tt>.
+		</p>
+
 		<p><b>Sun Feb 18 23:37:14 GMT 2001</b></p>
 
 		<p>
@@ -228,7 +317,7 @@
     <address><a href="mailto:rich@bibliotech.co.uk"></a></address>
 <!-- Created: Thu Nov  2 18:51:24 GMT 2000 -->
 <!-- hhmts start -->
-Last modified: Thu Feb 22 17:24:25 GMT 2001
+Last modified: Wed Apr 11 17:40:30 BST 2001
 <!-- hhmts end -->
   </body>
 </html>
