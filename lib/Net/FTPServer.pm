@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.152 2001/08/28 15:54:31 rbrown Exp $
+# $Id: FTPServer.pm,v 1.152.2.3 2001/10/19 14:10:15 rich Exp $
 
 =pod
 
@@ -1413,7 +1413,7 @@ with different back-end personalities (in particular when
     # Copy data into memory.
     my @lines = ();
 
-    while ($_ = $file->getline)
+    while (defined ($_ = $file->getline))
       {
 	# Remove any native line endings.
 	s/[\n\r]+$//;
@@ -1444,7 +1444,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.152 2001/08/28 15:54:31 rbrown Exp $
+  200-$Id: FTPServer.pm,v 1.152.2.3 2001/10/19 14:10:15 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1734,7 +1734,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.032';
+$VERSION = '1.033';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -3037,7 +3037,7 @@ sub _open_config_file
     my $sitename;
 
     # Read in the configuration options from the file.
-    while ($_ = $config->getline)
+    while (defined ($_ = $config->getline))
       {
 	$lineno++;
 
@@ -3121,7 +3121,7 @@ sub _open_config_file
 	    # Suck in lines verbatim until we reach the end of this section.
 	    my $perl_code = "";
 
-	    while ($_ = $config->getline)
+	    while (defined ($_ = $config->getline))
 	      {
 		$lineno++;
 		last if /^\s*<\/Perl>\s*$/i;
@@ -3973,7 +3973,7 @@ sub _chdir_message
 	local $_;
 
 	# Read the file into memory and perform % escaping.
-	while ($_ = $file->getline)
+	while (defined ($_ = $file->getline))
 	  {
 	    s/[\n\r]+$//;
 	    push @lines, $self->_percent_substitutions ($_);
@@ -4340,7 +4340,9 @@ sub _RETR_command
 	if ($self->{_restart})
 	  {
 	    # VFS seek method only required to support relative forward seeks
-	    $file->sysseek ($self->{_restart}, SEEK_CUR);
+	    # 1 == SEEK_CUR, but Perl 5.00503 doesn't have this defined in
+	    # Fcntl.pm (thanks to Rasca Gmelch <rasca@triad.de>).
+	    $file->sysseek ($self->{_restart}, 1);
 	    $self->{_restart} = 0;
 	  }
 
@@ -4420,7 +4422,7 @@ sub _RETR_command
 	  }
 
 	# Copy data.
-	while ($_ = $file->getline)
+	while (defined ($_ = $file->getline))
 	  {
 	    $self->xfer (length $_) if $self->{_xferlog};
 
@@ -6482,7 +6484,7 @@ sub _store
 	# XXX Do we need to support REST?
 
 	# Copy data.
-	while ($_ = $sock->getline)
+	while (defined ($_ = $sock->getline))
 	  {
 	    $self->xfer (length $_) if $self->{_xferlog};
 

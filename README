@@ -1,4 +1,4 @@
-$Id: README,v 1.42.2.1 2001/09/17 09:46:35 rich Exp $
+$Id: README,v 1.42.2.3 2001/10/19 14:10:14 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -71,6 +71,9 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.033: In ASCII mode, downloading a file ending in "\n0" would
+cause corruption: now fixed.
 
 Version 1.032: Various small bug fixes by Rob.
 
