@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.86 2001/06/21 10:22:10 rich Exp $
+# $Id: FTPServer.pm,v 1.89 2001/07/02 18:00:30 rich Exp $
 
 =pod
 
@@ -1294,7 +1294,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.86 2001/06/21 10:22:10 rich Exp $
+  200-$Id: FTPServer.pm,v 1.89 2001/07/02 18:00:30 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1584,7 +1584,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.17';
+$VERSION = '1.0.18';
 $RELEASE = 1;
 
 use Config;
@@ -1733,7 +1733,7 @@ sub run
       $self->config ("max clients") || 255;
     $self->{_max_clients_message} =
       $self->config ("max clients message") ||
-        "Maximum connections reached";
+	"Maximum connections reached";
 
     # Open syslog.
     $self->{_enable_syslog} =
@@ -1983,7 +1983,9 @@ sub run
 	$peeraddr = inet_aton ( $peeraddrstring = "127.0.0.1" );
       }
 
-    $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport] \#".($self->concurrent_connections +1));
+    $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport] \#".
+		      (1 + $self->concurrent_connections));
+
     # Resolve the address.
     my $peerhostname;
     if ($self->config ("resolve addresses"))
@@ -2609,6 +2611,9 @@ sub _be_daemon
 		$self->log ("info", "starting child process")
 		  if $self->{debug};
 
+		# Wipe the hash within the child process to save memory
+		$self->{_children} = $self->concurrent_connections;
+
 		# Shutdown accepting file descriptor to allow successful
 		# port bind() in case of a future daemon restart
 		$self->{_ctrl_sock}->close;
@@ -2638,7 +2643,27 @@ sub _be_daemon
 sub concurrent_connections
   {
     my $self = shift;
-    return scalar keys %{$self->{_children}};
+
+    if (exists $self->{_children})
+      {
+	if (ref $self->{_children})
+	  {
+	    # Main Parent Server (exactly accurate)
+	    return scalar keys %{$self->{_children}};
+	  }
+	else
+	  {
+	    # Child Process (slightly outdated count)
+	    return $self->{_children};
+	  }
+      }
+    else
+      {
+	# Not running as a daemon (eg. running from inetd). We don't
+	# know the number of connections, but it's not likely to be
+	# high, so just return 1.
+	return 1;
+      }
   }
 
 # Open configuration file and prepare to read configuration.
@@ -5535,8 +5560,8 @@ sub _get
     # Get the file handle.
     my $fileh =
       ($filename eq ".") ? $dirh :
-        ($filename eq "..") ? $dirh->parent :
-          $dirh->get($filename);
+	($filename eq "..") ? $dirh->parent :
+	  $dirh->get($filename);
 
     return ($dirh, $fileh, $filename);
   }
