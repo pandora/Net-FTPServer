@@ -1,12 +1,12 @@
 #!/bin/sh
 #
-# $Id: Build.local,v 1.1 2001/02/08 14:38:21 rich Exp $
+# $Id: Build.local,v 1.2 2001/09/17 14:56:22 rich Exp $
 
 make -k realclean
 
 set -o errexit
 
-export PERL5LIB=$HOME/.build/usr/lib/perl5/site_perl/5.005
+export PERL5LIB=$HOME/.build/usr/lib/perl5/site_perl/5.7.2
 
 perl Makefile.PL PREFIX=$HOME/.build/usr
 

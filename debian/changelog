@@ -1,0 +1,20 @@
+libnet-ftpserver-perl (1.103-1) unstable; urgency=low
+
+  * New upstream version.
+  * More docs and more examples.
+
+ -- Chip Salzenberg <chip@debian.org>  Mon,  7 Jan 2002 15:57:47 -0800
+
+libnet-ftpserver-perl (1.100-2) unstable; urgency=low
+
+  * Add many Perl modules to Build-Depends.  Original patch
+    by LaMont Jones <lamont@debian.org>.  (closes: #113578)
+
+ -- Chip Salzenberg <chip@debian.org>  Wed, 26 Dec 2001 21:04:04 -0800
+
+libnet-ftpserver-perl (1.100-1) unstable; urgency=low
+
+  * Initial Release.  (closes: #112847)
+
+ -- Chip Salzenberg <chip@debian.org>  Wed, 19 Sep 2001 16:00:00 -0700
+

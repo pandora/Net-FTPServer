@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.3 2001/05/25 20:42:15 rbrown Exp $
+# $Id: DirHandle.pm,v 1.6 2001/10/24 14:40:04 rich Exp $
 
 =pod
 
@@ -43,10 +42,8 @@ package Net::FTPServer::DirHandle;
 
 use strict;
 
-# Some magic which is required by CPAN. This is not the real version
-# number. If you want that, have a look at FTPServer::VERSION.
 use vars qw($VERSION);
-$VERSION = '1.0';
+( $VERSION ) = '$Revision: 1.6 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Carp qw(confess);
 
@@ -239,90 +236,6 @@ returns a C<IO::File> handle object.
 =cut
 
 sub open
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_write;
-
-Return true if the current user can write into the current
-directory (ie. create files, rename files, delete files, etc.).
-
-=cut
-
-sub can_write
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_delete;
-
-Return true if the current user can delete the current
-directory.
-
-=cut
-
-sub can_delete
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_enter;
-
-Return true if the current user can enter the current
-directory.
-
-=cut
-
-sub can_enter
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_list;
-
-Return true if the current user can list the current
-directory.
-
-=cut
-
-sub can_list
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_rename;
-
-Return true if the current user can rename the current
-directory.
-
-=cut
-
-sub can_rename
-  {
-    confess "virtual function";
-  }
-
-=pod
-
-=item $rv = $dirh->can_mkdir;
-
-Return true if the current user can create subdirectories of the
-current directory.
-
-=cut
-
-sub can_mkdir
   {
     confess "virtual function";
   }

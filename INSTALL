@@ -1,4 +1,4 @@
-$Id: INSTALL,v 1.6 2001/08/07 10:15:23 rich Exp $
+$Id: INSTALL,v 1.10 2001/12/30 14:38:30 rich Exp $
 
 Installing Net::FTPServer
 -------------------------
@@ -7,11 +7,19 @@ Prerequisites:
 
   perl >= 5.00503
 
+  Archive::Zip     optional       If you want to allow users to create ZIP
+				  files from directories on the fly (so-called
+				  "archive mode"), you need this module.
+
   Authen::PAM      optional       If you want to do PAM authentication (eg.
                                   you have Red Hat Linux or Solaris).
 
   BSD::Resource    optional       If you want resource limits to avoid certain
 				  types of denial of service (DoS) attack.
+
+  Compress::Zlib   optional       If you want to allow users to create ZIP
+				  files from directories on the fly (so-called
+				  "archive mode"), you need this module.
 
   Digest::MD5      optional       If you want the SITE CHECKSUM command
                                   to work correctly.
@@ -25,10 +33,22 @@ Prerequisites:
                                   basic Perl package, but make sure you
                                   have a pretty recent version.
 
-  IO-stringy       required       You will need this in order to run the
-                                  test suite. Make sure you have at least
-				  version 1.220 from CPAN which includes
-				  some important bug fixes.
+  IO-stringy       required       This is now required by the main server.
+				  Make sure you have at least version 1.220
+				  from CPAN which includes some important
+				  bug fixes.
+
+  bzip2            optional       If an external "bzip2" program is available,
+				  it can be used to create archives
+				  automatically.
+
+  gzip             optional       If an external "gzip" program is available,
+				  it can be used to create archives
+				  automatically.
+
+  uuencode         optional       If an external "uuencode" program is
+				  available, it can be used to create
+				  uuencoded archives automatically.
 
 To compile:
 
@@ -40,6 +60,9 @@ To install (usually as root):
 
   make install
 
+(NB. "make install" will destroy your existing configuration file,
+unless you do "make NOCONF=1 install").
+
 The documentation should be automatically installed. Do:
 
   man Net::FTPServer
@@ -49,5 +72,5 @@ or if you don't have a working man pages system, do:
   pod2man lib/Net/FTPServer.pm | nroff -man | more
 
 Read the section "INSTALLING AND RUNNING THE SERVER" to find out how
-to install the configuration file and scripts and to start and stop
-the server.
+to change the configuration file to suit your local situation, and how
+to start and stop the server.

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.14 2001/08/27 09:17:48 rich Exp $
+# $Id: Makefile.PL,v 1.21 2002/05/15 14:15:39 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -32,6 +32,14 @@ use ExtUtils::MakeMaker;
 
 my %modules
   = (
+     'Archive::Zip' =>
+     { status => "optional",
+       version => "0.11",
+       message =>
+       "Archive::Zip is missing. This module is required if you want to\n".
+       "enable archive mode, which allows users to create ZIP files on\n".
+       "the fly from directories on the server.\n"
+     },
      'Authen::PAM' =>
      { status => "recommended",
        version => "0.12",
@@ -51,6 +59,14 @@ my %modules
        "to certain sorts of denial of service (DoS) attacks.\n"
      },
      'Carp' => { status => "required" },
+     'Compress::Zlib' =>
+     { status => "optional",
+       version => "1.14",
+       message =>
+       "Compress::Zlib is missing. This module is required if you want to\n".
+       "enable archive mode, which allows users to create ZIP files on\n".
+       "the fly from directories on the server.\n"
+     },
      'DBI' =>
      { status => "optional",
        message =>
@@ -77,8 +93,10 @@ my %modules
      'IO::Handle' => { status => "required", package => "IO" },
      'IO::Scalar' => { status => "required", package => "IO-stringy",
 		       version => "1.126" },
+     'IO::Seekable' => { status => "required" },
      'IO::Select' => { status => "required", package => "IO" },
      'IO::Socket' => { status => "required", package => "IO" },
+     'IPC::Open2' => { status => "required" },
      'POSIX' => { status => "required" },
      'Socket' => { status => "required" },
      'Sys::Hostname' => { status => "required" },
@@ -152,11 +170,13 @@ EOT
     exit 1;
   }
 
-# Check for at least Perl 5.00503.
-if ($] < 5.00503)
+# The code has only been verified on versions of Perl >= than
+# the following. If you find an earlier version of Perl on which
+# Net::FTPServer runs, please tell me. - rich@annexia.org.
+if ($] < 5.00405)
   {
     print <<EOT;
-Perl version >= 5.00503 is required.
+Perl version >= 5.00405 is required.
 
 EOT
     exit 1;
@@ -166,9 +186,17 @@ WriteMakefile(
 	      NAME => "Net::FTPServer",
 	      VERSION_FROM => "lib/Net/FTPServer.pm",
 
+	      # These are for the XS code.
 	      DEFINE => '',
 	      LIBS => [''],
 	      INC => '',
+
+	      # Install start-up scripts under /usr/sbin.
+	      EXE_FILES => [ 'bin/dbeg1-ftpd.pl',
+			     'bin/ftpd.pl',
+			     'bin/inmem-ftpd.pl',
+			     'bin/ro-ftpd.pl' ],
+	      INSTALLSCRIPT => "/usr/sbin",
 
 	      dist =>
 	      {
@@ -215,6 +243,23 @@ check-manifest:
 	sort MANIFEST > .orig-manifest; \
 	diff -u .orig-manifest .check-manifest; \
 	rm -f .orig-manifest .check-manifest
+
+install ::
+	@if [ ! "${NOCONF}" ]; then \
+	  if [ ! -f /etc/ftpd.conf ]; then \
+	    install -c -o root -g root -m 0644 ftpd.conf /etc; \
+	  else \
+	    install -c -o root -g root -m 0644 ftpd.conf /etc/ftpd.conf.new; \
+	    echo "Old configuration file /etc/ftpd.conf not overwritten."; \
+	    echo "New configuration file installed as /etc/ftpd.conf.new"; \
+	  fi; \
+	fi
+	@echo
+	@echo "Net::FTPServer has been installed. Before proceeding please"
+	@echo "read the manual page. Type:"
+	@echo
+	@echo "  man Net::FTPServer"
+	@echo
 ';
   }
 

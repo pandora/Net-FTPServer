@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.1 2001/02/08 14:38:49 rich Exp $
+# $Id: FileHandle.pm,v 1.4 2001/10/24 14:40:05 rich Exp $
 
 =pod
 
@@ -43,10 +42,8 @@ package Net::FTPServer::DBeg1::FileHandle;
 
 use strict;
 
-# Some magic which is required by CPAN. This is not the real version
-# number. If you want that, have a look at FTPServer::VERSION.
 use vars qw($VERSION);
-$VERSION = '1.0';
+( $VERSION ) = '$Revision: 1.4 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Carp qw(croak confess);
 
@@ -188,31 +185,6 @@ sub delete
     $self->{ftps}{fs_dbh}->func ($self->{fs_content}, 'lo_unlink');
 
     return 0;
-  }
-
-sub can_read
-  {
-    return 1;
-  }
-
-sub can_write
-  {
-    return 1;
-  }
-
-sub can_append
-  {
-    return 1;
-  }
-
-sub can_rename
-  {
-    return 1;
-  }
-
-sub can_delete
-  {
-    return 1;
   }
 
 1 # So that the require or use succeeds.
