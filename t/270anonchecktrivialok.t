@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 270anonchecktrivialok.t,v 1.1 2001/08/27 09:17:54 rich Exp $
+# $Id: 270anonchecktrivialok.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

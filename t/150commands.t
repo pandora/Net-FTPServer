@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 150commands.t,v 1.3 2003/01/13 19:08:54 rbrown Exp $
+# $Id: 150commands.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350generatorzip.t,v 1.4 2002/05/13 15:31:47 rich Exp $
+# $Id: 350generatorzip.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350generatorlist.t,v 1.3 2001/10/28 16:31:15 rich Exp $
+# $Id: 350generatorlist.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

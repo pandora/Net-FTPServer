@@ -1,9 +1,9 @@
-$Id: README,v 1.85 2003/05/03 00:20:47 rbrown Exp $
+$Id: README,v 1.4 2003/09/28 12:12:22 rwmj Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
 
-Copyright (C) 2000 Biblio@Tech Ltd.,	Copyright (C) 2000-2002
+Copyright (C) 2000 Biblio@Tech Ltd.,	Copyright (C) 2000-2003
 Unit 2-3, 50 Carnwath Road, London,	Richard Jones <rich@annexia.org>
 SW6 3EG, UK.				and other contributors.
 
@@ -13,6 +13,9 @@ project and was kindly released under the GNU General Public License
 college to join up:
 
 http://www.bibliotech.net/	http://www.schoolmaster.net/
+
+Developers' page:	https://savannah.nongnu.org/projects/netftpserver/
+General information:	http://www.annexia.org/freeware/netftpserver/
 
 Major features of Net::FTPServer include:
 
@@ -68,18 +71,22 @@ and read the section "INSTALLING AND RUNNING THE SERVER".
 SUPPORT AND MAILING LIST
 ---------------------------------------------
 
-There is a mailing list for general discussion and announcements. To
-subscribe, send mail to <ftpserver-request@annexia.org> containing a
-single line in the body (not subject) of the request saying:
+There is a mailing list for general discussion and announcements.  See
+the Savannah mailing list page for details:
 
-	subscribe ftpserver
+https://savannah.nongnu.org/mail/?group=netftpserver
 
-Send feedback, bug reports, questions and patches to the author,
-Richard Jones <rich@annexia.org>.
+Bug reports, feature requests, and so on should be sent to the mailing
+list.
 
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.118: EXPERIMENTAL RELEASE. Moved to Savannah.nongnu.org.
+
+Version 1.117: EXPERIMENTAL RELEASE. Fix t/350filters.t uudecode
+syntax to comply with certain systems.
 
 Version 1.116: EXPERIMENTAL RELEASE. Incorporated a change from the
 FreeBSD port of Net::FTPServer - does not install with '-g root'

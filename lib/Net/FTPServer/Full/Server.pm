@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.11 2002/05/15 14:15:43 rich Exp $
+# $Id: Server.pm,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 =pod
 
@@ -50,7 +50,7 @@ use strict;
 BEGIN { eval "use Authen::PAM;"; }
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.11 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer;
 use Net::FTPServer::Full::FileHandle;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 10load.t,v 1.2 2001/02/18 11:08:18 rich Exp $
+# $Id: 10load.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

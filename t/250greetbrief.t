@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 250greetbrief.t,v 1.1 2001/08/27 09:17:52 rich Exp $
+# $Id: 250greetbrief.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.5 2001/10/24 14:40:07 rich Exp $
+# $Id: Server.pm,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 =pod
 
@@ -49,7 +49,7 @@ package Net::FTPServer::RO::Server;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.5 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer;
 use Net::FTPServer::RO::FileHandle;

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.27 2003/05/02 02:09:20 rbrown Exp $
+# $Id: Makefile.PL,v 1.1 2003/09/28 11:50:44 rwmj Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server

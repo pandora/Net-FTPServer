@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 280cmdfilter.t,v 1.1 2001/10/28 16:31:14 rich Exp $
+# $Id: 280cmdfilter.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.14 2003/01/13 18:23:52 rbrown Exp $
+# $Id: DirHandle.pm,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 =pod
 
@@ -43,7 +43,7 @@ package Net::FTPServer::Full::DirHandle;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.14 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use IO::Dir;
 use Carp qw(confess);

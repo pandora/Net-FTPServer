@@ -1,16 +1,17 @@
 #!/usr/bin/perl -w
 
-# $Id: 160portpasv.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
+# $Id: 160portzeroes.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;
 use POSIX qw(dup2);
 use IO::Handle;
 use IO::Socket;
+use IO::Socket::INET;
 use FileHandle;
 
 BEGIN {
-  plan tests => 41;
+  plan tests => 23;
 }
 
 use Net::FTPServer::InMem::Server;
@@ -61,7 +62,7 @@ for (my $pass = 1; $pass <= 3; ++$pass)
     my $p1 = int ($sock->sockport / 256);
     my $p2 = int ($sock->sockport % 256);
 
-    print OUTFD0 "PORT 127,0,0,1,$p1,$p2\r\n";
+    print OUTFD0 "PORT 127,000,000,001,$p1,$p2\r\n";
     $_ = <INFD1>;
     ok (/^200/);
 
@@ -97,51 +98,6 @@ for (my $pass = 1; $pass <= 3; ++$pass)
     ok (/^226/);
 
     print OUTFD0 "DELE test1\r\n";
-    $_ = <INFD1>;
-    ok (/^250/);
-
-    # Test passive mode upload.
-    print OUTFD0 "PASV\r\n";
-    $_ = <INFD1>;
-    ok (/^227 Entering Passive Mode \(127,0,0,1,(.*),(.*)\)/);
-
-    my $port = $1 * 256 + $2;
-
-    print OUTFD0 "STOR test2\r\n";
-    $_ = <INFD1>;
-    ok (/^150/);
-
-    $sock = new IO::Socket::INET
-      (PeerAddr => "127.0.0.1:$port",
-       Proto => "tcp")
-	or die "socket: $!";
-
-    for (my $i = 0; $i < 100; ++$i)
-      {
-	$sock->print ('b' x 100);
-      }
-    $sock->close;
-
-    $_ = <INFD1>;
-    ok (/^226/);
-
-    # Test passive mode download.
-    print OUTFD0 "RETR test2\r\n";
-    $_ = <INFD1>;
-    ok (/^150/);
-
-    $sock = new IO::Socket::INET
-      (PeerAddr => "127.0.0.1:$port",
-       Proto => "tcp")
-	or die "socket: $!";
-
-    while ($sock->getline) {}
-    $sock->close;
-
-    $_ = <INFD1>;
-    ok (/^226/);
-
-    print OUTFD0 "DELE test2\r\n";
     $_ = <INFD1>;
     ok (/^250/);
   }

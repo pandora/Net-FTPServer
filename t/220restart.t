@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 220restart.t,v 1.2 2001/08/23 11:24:22 rich Exp $
+# $Id: 220restart.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;

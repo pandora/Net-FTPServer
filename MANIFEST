@@ -16,6 +16,7 @@ bin/dbeg1-ftpd.pl
 bin/ftpd.pl
 bin/inmem-ftpd.pl
 bin/ro-ftpd.pl
+debian/README.Debian
 debian/changelog
 debian/control
 debian/copyright
@@ -56,6 +57,7 @@ t/130goodlogin.t
 t/140badlogin.t
 t/150commands.t
 t/160portpasv.t
+t/160portzeroes.t
 t/170ascii.t
 t/170files.t
 t/180store.t

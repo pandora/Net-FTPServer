@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350filters.t,v 1.6 2003/04/30 23:10:57 rbrown Exp $
+# $Id: 350filters.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 use strict;
 use Test;
@@ -103,12 +103,14 @@ system ("compress -cd < $tmpfile.a > $tmpfile.b") == 0 or die "compress: $!";
 ok (compare_files ($tmpfile, "$tmpfile.b"));
 
 ok (download_file ("$tmpfile.gz", "$tmpfile.a"));
-system ("gzip -cd $tmpfile.a > $tmpfile.b") == 0 or die "gzip: $!";
+system ("gzip -cd < $tmpfile.a > $tmpfile.b") == 0 or die "gzip: $!";
 ok (compare_files ($tmpfile, "$tmpfile.b"));
 
 ok (download_file ("$tmpfile.gz.uue", "$tmpfile.a"));
-system ("uudecode -o $tmpfile.b < $tmpfile.a") == 0 or die "uudecode: $!";
-system ("gzip -cd $tmpfile.b > $tmpfile.a") == 0 or die "gzip: $!";
+# uudecode -o $tmpfile.b < $tmpfile.a
+system ("uudecode < $tmpfile.a") == 0 or die "uudecode: $!";
+rename ("file", "$tmpfile.b") or die "uudecode: $!";
+system ("gzip -cd < $tmpfile.b > $tmpfile.a") == 0 or die "gzip: $!";
 ok (compare_files ($tmpfile, "$tmpfile.a"));
 
 unlink $tmpfile;

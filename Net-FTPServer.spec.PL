@@ -1,6 +1,6 @@
 # Copyright (C) 1999 Bibliotech Ltd., 631-633 Fulham Rd., London SW6 5UQ.
 #
-# $Id: Net-FTPServer.spec.PL,v 1.20 2003/05/02 02:13:35 rbrown Exp $
+# $Id: Net-FTPServer.spec.PL,v 1.1 2003/09/28 11:50:44 rwmj Exp $
 
 use strict;
 

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.4 2001/10/24 14:40:04 rich Exp $
+# $Id: FileHandle.pm,v 1.1 2003/09/28 11:50:45 rwmj Exp $
 
 =pod
 
@@ -43,7 +43,7 @@ package Net::FTPServer::FileHandle;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.4 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer::Handle;
 

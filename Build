@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# $Id: Build,v 1.1 2001/02/08 14:38:21 rich Exp $
+# $Id: Build,v 1.1 2003/09/28 11:50:44 rwmj Exp $
 
 make -k realclean
 
