@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.124 2001/07/31 12:44:36 rich Exp $
+# $Id: FTPServer.pm,v 1.126 2001/08/01 09:19:22 rich Exp $
 
 =pod
 
@@ -1258,6 +1258,16 @@ and load each one:
 
  </Perl>
 
+To force a particular version of Net::FTPServer to be
+used, include the following code in your configuration
+file:
+
+  <Perl>
+  die "requires Net::FTPServer version >= 1.025"
+    unless $Net::FTPServer::VERSION !~ /\..*\./ &&
+           $Net::FTPServer::VERSION >= 1.025;
+  </Perl>
+
 =back 4
 
 =head2 LOADING CUSTOMIZED SITE COMMANDS
@@ -1440,7 +1450,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.124 2001/07/31 12:44:36 rich Exp $
+  200-$Id: FTPServer.pm,v 1.126 2001/08/01 09:19:22 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1730,8 +1740,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.24';
-$RELEASE = 6;
+$VERSION = '1.025';
+$RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
 require DynaLoader;

@@ -42,11 +42,17 @@ _test_and_clear_signals ()
 CODE:
 	sigset_t ss;
 
-	sigfillset (&ss);
-	sigprocmask (SIG_BLOCK, &ss, 0);
-	RETVAL = signals;
-	signals = 0;
-	sigprocmask (SIG_UNBLOCK, &ss, 0);
+	/* Avoid the system call overhead in the common case where there
+	 * are no signals waiting.
+	 */
+	if (signals == 0) RETVAL = 0;
+	else {
+		sigfillset (&ss);
+		sigprocmask (SIG_BLOCK, &ss, 0);
+		RETVAL = signals;
+		signals = 0;
+		sigprocmask (SIG_UNBLOCK, &ss, 0);
+	}
 OUTPUT:
 	RETVAL
 
