@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.85 2001/06/19 17:36:02 rich Exp $
+# $Id: FTPServer.pm,v 1.86 2001/06/21 10:22:10 rich Exp $
 
 =pod
 
@@ -1294,7 +1294,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.85 2001/06/19 17:36:02 rich Exp $
+  200-$Id: FTPServer.pm,v 1.86 2001/06/21 10:22:10 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1584,7 +1584,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.16';
+$VERSION = '1.0.17';
 $RELEASE = 1;
 
 use Config;
@@ -1750,46 +1750,46 @@ sub run
 	}
 
 	Sys::Syslog::openlog "ftpd", "pid", "daemon";
-	$self->syslog ("info", "%s running", $self->{version_string});
+	$self->log ("info", "%s running", $self->{version_string});
       }
 
     # Set up a hook for warn and die so that these cause messages to
     # be echoed to the syslog.
     $SIG{__WARN__} = sub {
-      $self->syslog ("warning", $_[0]);
+      $self->log ("warning", $_[0]);
       warn $_[0];
     };
     $SIG{__DIE__} = sub {
-      $self->syslog ("err", $_[0]);
+      $self->log ("err", $_[0]);
       die $_[0];
     };
 
     # Set up signal handlers to give us a clean exit.
     # XXX Are these inherited?
     $SIG{PIPE} = sub {
-      $self->syslog ("info", "client closed connection abruptly") if $self;
+      $self->log ("info", "client closed connection abruptly") if $self;
       exit;
     };
     $SIG{TERM} = sub {
-      $self->syslog ("info", "exiting on TERM signal");
+      $self->log ("info", "exiting on TERM signal");
       $self->reply (421, "Manual shutdown from server");
       $self->_log_line ("[TERM RECEIVED]");
       exit;
     };
     $SIG{INT} = sub {
-      $self->syslog ("info", "exiting on keyboard INT signal");
+      $self->log ("info", "exiting on keyboard INT signal");
       exit;
     };
     $SIG{QUIT} = sub {
-      $self->syslog ("info", "exiting on keyboard QUIT signal");
+      $self->log ("info", "exiting on keyboard QUIT signal");
       exit;
     };
     $SIG{HUP} = sub {
-      $self->syslog ("info", "exiting on HUP signal");
+      $self->log ("info", "exiting on HUP signal");
       exit;
     };
     $SIG{ALRM} = sub {
-      $self->syslog ("info", "exiting on ALRM signal");
+      $self->log ("info", "exiting on ALRM signal");
       print "421 Server closed the connection after idle timeout.\r\n";
       $self->_log_line ("[TIMED OUT!]");
       exit;
@@ -1837,15 +1837,15 @@ sub run
 	    if (ref $sub eq "CODE") {
 	      $self->{site_command_table}{uc $cmdname} = $sub;
 	    } else {
-	      $self->syslog ("err", "site command: $filename: must return an anonymous subroutine when evaluated (skipping)");
+	      $self->log ("err", "site command: $filename: must return an anonymous subroutine when evaluated (skipping)");
 	    }
 	  }
 	else
 	  {
 	    if ($!) {
-	      $self->syslog ("err", "site command: $filename: $! (ignored)")
+	      $self->log ("err", "site command: $filename: $! (ignored)")
 	    } else {
-	      $self->syslog ("err", "site command: $filename: $@ (ignored)")
+	      $self->log ("err", "site command: $filename: $@ (ignored)")
 	    }
 	  }
       }
@@ -1866,7 +1866,7 @@ sub run
 	$self->_save_pid;
 
 	local $SIG{TERM} = sub {
-	  $self->syslog ("info", "shutting down daemon");
+	  $self->log ("info", "shutting down daemon");
 	  $self->_log_line ("[DAEMON Shutdown]");
 	  exit;
 	};
@@ -1895,7 +1895,7 @@ sub run
 	  # Preserve the new file descriptor until exec is called.
 	  $self->{_hup} = $fake;
 
-	  $self->syslog ("info", "received SIGHUP, Reloading configuration");
+	  $self->log ("info", "received SIGHUP, Reloading configuration");
 	  $self->_log_line ("[DAEMON Reloading configuration]");
 	};
 
@@ -1955,13 +1955,13 @@ sub run
 	      {
 		if ($sitename)
 		  {
-		    $self->syslog ("info",
+		    $self->log ("info",
 				   "IP-based virtual hosts: ".
 				   "set site to $sitename");
 		  }
 		else
 		  {
-		    $self->syslog ("info",
+		    $self->log ("info",
 				   "IP-based virtual hosts: ".
 				   "no site found");
 		  }
@@ -2002,7 +2002,7 @@ sub run
 
 	if ($self->config ("require resolved addresses") && !$peerhostname)
 	  {
-	    $self->syslog ("err",
+	    $self->log ("err",
 			   "cannot resolve address for connection from " .
 			   "$peeraddrstring:$peerport");
 	    exit 0;
@@ -2100,7 +2100,7 @@ sub run
 	    "$peerhostname:$peerport ($peeraddrstring:$peerport)" :
 	    "$peeraddrstring:$peerport";
 
-	$self->syslog ("info", "connection from $peerinfodpy");
+	$self->log ("info", "connection from $peerinfodpy");
 
 	# Change name of process in process listing.
 	unless (defined $self->config ("change process name") &&
@@ -2170,7 +2170,7 @@ sub run
 	    # Took too long to connect to remote auth port
 	    # (probably because of a client-side firewall).
 	    $self->_log_line ("[Ident auth failed: connection timed out]");
-	    $self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: connection timed out");
+	    $self->log ("warning", "ident auth failed for $self->{peeraddrstring}: connection timed out");
 	  }
 	else
 	  {
@@ -2194,7 +2194,7 @@ sub run
 		if ($got_bored)
 		  {
 		    $self->_log_line ("[Ident auth failed: response timed out]");
-		    $self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: response timed out");
+		    $self->log ("warning", "ident auth failed for $self->{peeraddrstring}: response timed out");
 		  }
 		else
 		  {
@@ -2202,19 +2202,19 @@ sub run
 		      {
 			$self->{auth} = $1;
 			$self->_log_line ("[IDENT AUTH VERIFIED: $self->{auth}\@$self->{peeraddrstring}]");
-			$self->syslog ("info", "ident auth: $self->{auth}\@$self->{peeraddrstring}");
+			$self->log ("info", "ident auth: $self->{auth}\@$self->{peeraddrstring}");
 		      }
 		    else
 		      {
 			$self->_log_line ("[Ident auth failed: invalid response]");
-			$self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: invalid response");
+			$self->log ("warning", "ident auth failed for $self->{peeraddrstring}: invalid response");
 		      }
 		  }
 	      }
 	    else
 	      {
 		$self->_log_line ("[Ident auth failed: Connection refused]");
-		$self->syslog ("warning", "ident auth failed for $self->{peeraddrstring}: Connection refused");
+		$self->log ("warning", "ident auth failed for $self->{peeraddrstring}: Connection refused");
 	      }
 	  }
       }
@@ -2303,7 +2303,7 @@ sub run
 	# See also RFC 2640 section 3.1.
 	unless (m/^([A-Z]{3,4})\s?(.*)/i)
 	  {
-	    $self->syslog ("err",
+	    $self->log ("err",
 			   "badly formed command received: %s", _escape($_));
 	    $self->_log_line ("[Badly formed command]", _escape($_));
 	    exit 0;
@@ -2311,7 +2311,7 @@ sub run
 
 	my ($cmd, $rest) = (uc $1, $2);
 
-	$self->syslog ("info", "command: (%s, %s)",
+	$self->log ("info", "command: (%s, %s)",
 		       _escape($cmd), _escape($rest))
 	  if $self->{debug};
 
@@ -2327,7 +2327,7 @@ sub run
 	unless (exists $self->{command_table}{$cmd})
 	  {
 	    $self->reply (500, "Unrecognized command.");
-	    $self->syslog ("err",
+	    $self->log ("err",
 			   "unknown command received: %s", _escape($_));
 	    next;
 	  }
@@ -2340,7 +2340,7 @@ sub run
       }
 
     $self->_log_line ("[ENDED BY CLIENT $self->{peeraddrstring}:$self->{peerport}]");
-    $self->syslog ("info", "connection terminated normally");
+    $self->log ("info", "connection terminated normally");
   }
 
 # Added 21 Feb 2001 by Rob Brown <rbrown@about-inc.com>
@@ -2471,7 +2471,7 @@ sub _fork_into_background
 #    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
 #    POSIX::open ("/dev/null", O_CREAT|O_EXCL|O_WRONLY, 0644);
 
-    $self->syslog ("info", "forked into background");
+    $self->log ("info", "forked into background");
   }
 
 # Be a daemon (command line -s option).
@@ -2480,7 +2480,7 @@ sub _be_daemon
   {
     my $self = shift;
 
-    $self->syslog ("info", "operating in daemon mode");
+    $self->log ("info", "operating in daemon mode");
     $self->_log_line ("[DAEMON Started]");
 
     # Discover the default FTP port from /etc/services or equivalent.
@@ -2606,7 +2606,7 @@ sub _be_daemon
 	  {
 	    if ($pid == 0)		# Child process.
 	      {
-		$self->syslog ("info", "starting child process")
+		$self->log ("info", "starting child process")
 		  if $self->{debug};
 
 		# Shutdown accepting file descriptor to allow successful
@@ -2832,10 +2832,10 @@ sub reply
 	print $code, " ", $_[@_-1], "\r\n";
       }
 
-    $self->syslog ("info", "reply: $code") if $self->{debug};
+    $self->log ("info", "reply: $code") if $self->{debug};
   }
 
-=item $ftps->syslog ($level, $message, ...);
+=item $ftps->log ($level, $message, ...);
 
 This function is identical to the normal C<syslog> function
 to be found in C<Sys::Syslog>. However, it only uses syslog
@@ -2845,7 +2845,7 @@ Use this function instead of calling C<syslog> directly.
 
 =cut
 
-sub syslog
+sub log
   {
     my $self = shift;
 
@@ -3114,7 +3114,7 @@ sub _PASS_command
 	if ($self->{loginattempts} >=
 	    ($self->config ("max login attempts") || 3))
 	  {
-	    $self->syslog ("notice", "repeated login attempts from %s:%d",
+	    $self->log ("notice", "repeated login attempts from %s:%d",
 			   $self->{peeraddrstring},
 			   $self->{peerport});
 
@@ -3251,7 +3251,7 @@ sub _PASS_command
       }
     else
       {
-	$self->syslog ("warning",
+	$self->log ("warning",
 		       "no home directory for user: $self->{user}");
       }
 
@@ -3500,7 +3500,7 @@ sub _QUIT_command
     my $rest = shift;
 
     $self->reply (221, "Goodbye. Service closing connection.");
-    $self->syslog ("info", "connection terminated normally");
+    $self->log ("info", "connection terminated normally");
 
     my $host =
       ! $self->{_test_mode}

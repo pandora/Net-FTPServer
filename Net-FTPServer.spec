@@ -2,7 +2,7 @@
 
 Summary: Net::FTPServer - an extensible, secure FTP server
 Name: Net-FTPServer
-Version: 1.0.16
+Version: 1.0.17
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
@@ -10,11 +10,12 @@ Source: %{name}-%{version}.tar.gz
 BuildRoot: /var/tmp/%{name}-%{version}-root
 Requires: Authen-PAM >= 0.10
 Requires: BSD-Resource >= 1.08
-Requires: Digest-MD5 >= 2.09
-Requires: Getopt-Long >= 2.23
-#Requires: IO >= 1.20
 Requires: IO-stringy >= 1.215-4
-Requires: perl >= 5.00503
+Requires: perl >= 5.6.1
+# The following packages are now provided by the core of perl.
+#Requires: Digest-MD5
+#Requires: Getopt-Long
+#Requires: IO >= 1.20
 
 %description
 

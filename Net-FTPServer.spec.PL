@@ -1,6 +1,6 @@
 # Copyright (C) 1999 Bibliotech Ltd., 631-633 Fulham Rd., London SW6 5UQ.
 #
-# $Id: Net-FTPServer.spec.PL,v 1.4 2001/02/22 12:01:50 rich Exp $
+# $Id: Net-FTPServer.spec.PL,v 1.5 2001/06/21 10:22:09 rich Exp $
 
 use strict;
 
@@ -34,11 +34,12 @@ Source: %{name}-%{version}.tar.gz
 BuildRoot: /var/tmp/%{name}-%{version}-root
 Requires: Authen-PAM >= 0.10
 Requires: BSD-Resource >= 1.08
-Requires: Digest-MD5 >= 2.09
-Requires: Getopt-Long >= 2.23
-#Requires: IO >= 1.20
 Requires: IO-stringy >= 1.215-4
-Requires: perl >= 5.00503
+Requires: perl >= 5.6.1
+# The following packages are now provided by the core of perl.
+#Requires: Digest-MD5
+#Requires: Getopt-Long
+#Requires: IO >= 1.20
 
 %description
 
