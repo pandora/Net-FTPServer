@@ -1,4 +1,4 @@
-$Id: README,v 1.39 2001/08/26 22:03:29 rich Exp $
+$Id: README,v 1.41 2001/08/27 09:17:48 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -71,6 +71,12 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.031: Added missed tests to MANIFEST file. Added 'make
+check-manifest' rule to try to eliminate missing files in the
+future. Document that %C does not work inside welcome text or welcome
+file options. Added many more tests (there are now over 400 in
+all). Fixed anonymous login test.
 
 Version 1.030: Cleaned up server start of day messages. Fixed a nasty
 bug which prevented command line options from working some of the time

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.13 2001/07/31 12:51:57 rich Exp $
+# $Id: Makefile.PL,v 1.14 2001/08/27 09:17:48 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -200,6 +200,22 @@ sub libscan
   {
     my ($self, $path) = @_;
     ($path =~ /\~$/) ? undef : $path;
+  }
+
+sub postamble
+  {
+    '
+check-manifest:
+	@for d in `find -type d -name CVS`; \
+	do \
+	b=`dirname $$d`/; \
+	awk -F/ \'$$1 != "D" {print $$2}\' $$d/Entries | \
+	sed -e "s|^|$$b|" -e "s|^\./||"; \
+	done | sort > .check-manifest; \
+	sort MANIFEST > .orig-manifest; \
+	diff -u .orig-manifest .check-manifest; \
+	rm -f .orig-manifest .check-manifest
+';
   }
 
 __END__

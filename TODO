@@ -1,4 +1,4 @@
-$Id: TODO,v 1.5 2001/06/18 16:05:49 rbrown Exp $
+$Id: TODO,v 1.6 2001/08/27 09:17:48 rich Exp $
 
 Benchmarking. Run http://www.kegel.com/dkftpbench/index.html against
 the server and optimize it according to the results. I don't expect
@@ -33,4 +33,30 @@ Implement EPRT and EPSV (see RFC 2428).
 Auto-compress files and directories on upload and download. Provide
 a hook to allow the range of compression functions to be increased.
 
-----------------------------------------------------------------------
+Regression tests for the following fixed bugs:
+
+* SIZE on non-readable files.
+* Zero-nodes.
+* SIZE /, MKD /, SIZE . and related funny things.
+* MLST /
+* NLST -al
+
+Tests for the following features:
+
+* SIGHUP - reload configuration & reopen files.
+* Illegal constructs in config file.
+* max clients.
+* Access control rules.
+* Ident (!)
+* Timezones.
+* max login attempts.
+* chdir message file.
+* alias.
+* cdpath.
+* allow site version command.
+* allow site exec command.
+* site command.
+* virtual hosts (HOST command).
+* command filter.
+* no authentication commands.
+* SITE CHECKSUM.

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.148 2001/08/26 22:03:29 rich Exp $
+# $Id: FTPServer.pm,v 1.150 2001/08/27 09:17:49 rich Exp $
 
 =pod
 
@@ -378,7 +378,6 @@ to be printed after a user has logged in.
 You may use the following % escape sequences within the welcome
 text to substitute for internal variables:
 
- %C  current working directory
  %E  maintainer's email address (from ``maintainer email''
      setting above)
  %G  time in GMT
@@ -829,8 +828,21 @@ Change directory message file. If set, then the first time (per
 session) that a user goes into a directory which contains a file
 matching this name, that file will be displayed.
 
-The file may contain any of the % escape sequences available.
-See C<welcome text> documentation above.
+The file may contain any of the following % escape sequences:
+
+ %C  current working directory
+ %E  maintainer's email address (from ``maintainer email''
+     setting above)
+ %G  time in GMT
+ %R  remote hostname or IP address if ``resolve addresses''
+     is not set
+ %L  local hostname
+ %m  user's home directory (see ``home directory'' below)
+ %T  local time
+ %U  username given when logging in
+ %u  currently a synonym for %U, but in future will be
+     determined from RFC931 authentication, like wu-ftpd
+ %%  just an ordinary ``%''
 
 Default: (none)
 
@@ -1432,7 +1444,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.148 2001/08/26 22:03:29 rich Exp $
+  200-$Id: FTPServer.pm,v 1.150 2001/08/27 09:17:49 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1722,7 +1734,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.030';
+$VERSION = '1.031';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -3718,8 +3730,9 @@ sub _PASS_command
 	  }
 	else
 	  {
-	    @lines = ( "The server administrator has configured a welcome file,",
-		       "but the file is missing." );
+	    @lines =
+	      ( "The server administrator has configured a welcome file,",
+		"but the file is missing." );
 	  }
 
 	$self->reply (230, @anon_passwd_warning, @lines);

@@ -1,11 +1,12 @@
 #!/usr/bin/perl -w
 
-# $Id: 130anonlogin.t,v 1.3 2001/08/27 09:17:52 rich Exp $
+# $Id: 260welcomefile.t,v 1.1 2001/08/27 09:17:53 rich Exp $
 
 use strict;
 use Test;
 use POSIX qw(dup2);
 use IO::Handle;
+use Sys::Hostname;
 use FileHandle;
 
 BEGIN {
@@ -13,6 +14,13 @@ BEGIN {
 }
 
 use Net::FTPServer::InMem::Server;
+
+my $cwd = `pwd`;
+chomp $cwd;
+my $file = ".260welcomefile.t.$$";
+open FILE, ">$file" or die "$file: $!";
+print FILE "Hello from file. \%E \%L \%U \%\%\n";
+close FILE;
 
 pipe INFD0, OUTFD0 or die "pipe: $!";
 pipe INFD1, OUTFD1 or die "pipe: $!";
@@ -27,7 +35,9 @@ unless ($pid) {			# Child process (the server).
   close OUTFD1;
   my $ftps = Net::FTPServer::InMem::Server->run
     (['--test', '-d', '-C', '/dev/null',
-      '-o', 'allow anonymous=1']);
+      '-o', 'welcome type=file',
+      '-o', "welcome file=$cwd/$file",
+      '-o', 'maintainer email=root@example.com']);
   exit;
 }
 
@@ -36,16 +46,20 @@ close INFD0;
 close OUTFD1;
 OUTFD0->autoflush (1);
 
+my $hostname = hostname ();
+
 $_ = <INFD1>;
 
-print OUTFD0 "USER ftp\r\n";
+print OUTFD0 "USER rich\r\n";
 $_ = <INFD1>;
 ok (/^331/);
 
-print OUTFD0 "PASS nobody\@\r\n";
+print OUTFD0 "PASS 123456\r\n";
 $_ = <INFD1>;
-ok (/^230/);
+ok (/Hello from file\. root\@example.com $hostname rich \%/);
 
 print OUTFD0 "QUIT\r\n";
 $_ = <INFD1>;
 ok (/^221/);
+
+unlink $file;

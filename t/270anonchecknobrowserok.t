@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 130anonlogin.t,v 1.3 2001/08/27 09:17:52 rich Exp $
+# $Id: 270anonchecknobrowserok.t,v 1.1 2001/08/27 09:17:54 rich Exp $
 
 use strict;
 use Test;
@@ -9,7 +9,7 @@ use IO::Handle;
 use FileHandle;
 
 BEGIN {
-  plan tests => 3;
+  plan tests => 2;
 }
 
 use Net::FTPServer::InMem::Server;
@@ -27,7 +27,9 @@ unless ($pid) {			# Child process (the server).
   close OUTFD1;
   my $ftps = Net::FTPServer::InMem::Server->run
     (['--test', '-d', '-C', '/dev/null',
-      '-o', 'allow anonymous=1']);
+      '-o', 'allow anonymous=1',
+      '-o', 'anonymous password check=nobrowser',
+      '-o', 'anonymous password enforce=1']);
   exit;
 }
 
@@ -42,10 +44,6 @@ print OUTFD0 "USER ftp\r\n";
 $_ = <INFD1>;
 ok (/^331/);
 
-print OUTFD0 "PASS nobody\@\r\n";
+print OUTFD0 "PASS root\@example.com\r\n";
 $_ = <INFD1>;
 ok (/^230/);
-
-print OUTFD0 "QUIT\r\n";
-$_ = <INFD1>;
-ok (/^221/);
