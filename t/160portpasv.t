@@ -1,13 +1,12 @@
 #!/usr/bin/perl -w
 
-# $Id: 160portpasv.t,v 1.2 2001/08/23 11:24:21 rich Exp $
+# $Id: 160portpasv.t,v 1.3 2003/05/01 21:47:50 rbrown Exp $
 
 use strict;
 use Test;
 use POSIX qw(dup2);
 use IO::Handle;
 use IO::Socket;
-use IO::Socket::INET;
 use FileHandle;
 
 BEGIN {

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.23 2003/01/06 07:11:53 rbrown Exp $
+# $Id: Makefile.PL,v 1.27 2003/05/02 02:09:20 rbrown Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -191,7 +191,9 @@ my @args = (
 			   'bin/ftpd.pl',
 			   'bin/inmem-ftpd.pl',
 			   'bin/ro-ftpd.pl' ],
-	    INSTALLSCRIPT => "/usr/sbin",
+	    INSTALLSCRIPT => $ExtUtils::MakeMaker::VERSION < 5.45 ?
+	    '$(PREFIX)/sbin' : # No SITEPREFIX before Perl 5.6.0
+	    '$(SITEPREFIX)/sbin',
 
 	    dist =>
 	    {
@@ -221,6 +223,16 @@ WriteMakefile @args;
 
 package MY;
 
+sub processPL
+  {
+    my $self = shift;
+    my $block = $self->SUPER::processPL(@_);
+    # "Version:" in spec needs to match
+    # "$VERSION" from VERSION_FROM
+    $block =~ s%(spec.PL\s*)$%$1 \$\(VERSION_FROM\)%m;
+    $block;
+  }
+
 sub libscan
   {
     my ($self, $path) = @_;
@@ -230,6 +242,8 @@ sub libscan
 sub postamble
   {
     '
+sysconfdir	= /etc
+
 check-manifest:
 	@for d in `find -type d -name CVS`; \
 	do \
@@ -243,12 +257,12 @@ check-manifest:
 
 install ::
 	@if [ ! "${NOCONF}" ]; then \
-	  if [ ! -f /etc/ftpd.conf ]; then \
-	    install -c -o root -g root -m 0644 ftpd.conf /etc; \
+	  if [ ! -f $(sysconfdir)/ftpd.conf ]; then \
+	    install -c -D -m 0644 ftpd.conf $(sysconfdir)/ftpd.conf; \
 	  else \
-	    install -c -o root -g root -m 0644 ftpd.conf /etc/ftpd.conf.new; \
-	    echo "Old configuration file /etc/ftpd.conf not overwritten."; \
-	    echo "New configuration file installed as /etc/ftpd.conf.new"; \
+	    install -c -m 0644 ftpd.conf $(sysconfdir)/ftpd.conf.new; \
+	    echo "Old configuration file $(sysconfdir)/ftpd.conf not overwritten."; \
+	    echo "New configuration file installed as $(sysconfdir)/ftpd.conf.new"; \
 	  fi; \
 	fi
 	@echo

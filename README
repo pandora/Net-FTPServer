@@ -1,4 +1,4 @@
-$Id: README,v 1.81 2003/01/23 00:43:24 rbrown Exp $
+$Id: README,v 1.85 2003/05/03 00:20:47 rbrown Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,19 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.116: EXPERIMENTAL RELEASE. Incorporated a change from the
+FreeBSD port of Net::FTPServer - does not install with '-g root'
+(which is a Linux-ism). Thanks for petef at freebsd.org for the patch.
+Less strict regex for PORT command (spot by Brian.Freeman at
+eby-brown.com). Allow "make test" to pass when certain filter commands
+are missing. Fix t/350filters.t compress syntax to comply with
+certain systems (spot by Vicki Brown  vlb at cfcl.com). Allow name
+based port to be used for source port on the server endpoint for PORT
+mode transfers. (i.e., "ftp data port: ftp-data" works now.  This is
+required by some router/firewall configurations. - Rob Brown)
+Compatibility fixes for ExtUtils::MakeMaker (5.91, 6.03, 6.10_03).
+Other minor package/build/make/rpm/install changes.
 
 Version 1.115: EXPERIMENTAL RELEASE. Remove bootstrap code from spec
 file so rpm works again. (Broken since 1.112.)  Add "ftp data port"

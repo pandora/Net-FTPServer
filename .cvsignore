@@ -2,6 +2,6 @@ Makefile
 blib
 pm_to_blib
 Net-FTPServer.spec
-Net-FTPServer-*.tar.gz
+Net-FTPServer-*
 FTPServer.c
 FTPServer.bs

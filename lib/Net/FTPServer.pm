@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.201 2003/01/23 00:08:29 rbrown Exp $
+# $Id: FTPServer.pm,v 1.205 2003/05/01 22:06:54 rbrown Exp $
 
 =pod
 
@@ -1755,7 +1755,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.201 2003/01/23 00:08:29 rbrown Exp $
+  200-$Id: FTPServer.pm,v 1.205 2003/05/01 22:06:54 rbrown Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2122,7 +2122,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.115';
+$VERSION = '1.116';
 $RELEASE = 1;
 
 # Non-optional modules.
@@ -4033,7 +4033,7 @@ sub archive_filter_external
     my $self = shift;
     my $sock = shift;
 
-    my ($new_sock, $pid);
+    my ($new_sock, $pid) = (FileHandle->new);
 
     # Perl is forcing me to go through unnecessary hoops here ...
     open AFE_SOCK, ">&" . fileno ($sock) or die "dup: $!";
@@ -4715,8 +4715,11 @@ sub _drop_privs
     $) = join (" ", $gid, $gid, @groups);
     $> = $uid;
 
-    if (!$self->config("ftp data port") ||
-        $self->config("ftp data port") >= 1024)
+    my $ftpdata = $self->config("ftp data port");
+    if (!$ftpdata or
+        ($ftpdata =~ /^\d+$/ ? $ftpdata :
+         scalar getservbyname($ftpdata,"tcp"))
+        >= 1024)
       {
         # Set the real GID/UID.
         $( = $gid;
@@ -4903,21 +4906,23 @@ sub _PORT_command
     # The arguments to PORT are a1,a2,a3,a4,p1,p2 where a1 is the
     # most significant part of the address (eg. 127,0,0,1) and
     # p1 is the most significant part of the port.
-    # NB: IE 6.0.2600.0000 sends a leading 0 in front of the
-    # first part of the IP address. This is the purpose of the
-    # "0?" in the following pattern.
-    unless ($rest =~ /^(0?[1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0)/)
+    #
+    # Some clients (eg. IE 6.0.2600.0000 and IBM mainframes) send
+    # leading zeroes in front of the numbers, and apparently the RFC
+    # doesn't prevent this. So we must use the 'int' function to
+    # remove these leading zeroes.
+    unless ($rest =~ /^\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})/)
       {
 	$self->reply (501, "Syntax error in PORT command.");
 	return;
       }
 
-    my $a1 = $1;
-    my $a2 = $2;
-    my $a3 = $3;
-    my $a4 = $4;
-    my $p1 = $5;
-    my $p2 = $6;
+    my $a1 = int ($1);
+    my $a2 = int ($2);
+    my $a3 = int ($3);
+    my $a4 = int ($4);
+    my $p1 = int ($5);
+    my $p2 = int ($6);
 
     # Check host address.
     unless ($a1 > 0 && $a1 < 224 &&

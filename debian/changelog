@@ -1,3 +1,23 @@
+libnet-ftpserver-perl (1.112-1) unstable; urgency=low
+
+  * New upstream version.
+  * Given Perl 5.8.0 with safe signals, no XS, so arch is 'all'.
+
+ -- Chip Salzenberg <chip@debian.org>  Wed, 12 Feb 2003 20:41:10 -0500
+
+libnet-ftpserver-perl (1.111-2) unstable; urgency=low
+
+  * Move some info to debian/copyright.  (closes: #157523)
+
+ -- Chip Salzenberg <chip@debian.org>  Fri, 20 Sep 2002 11:14:51 -0400
+
+libnet-ftpserver-perl (1.111-1) unstable; urgency=low
+
+  * New upstream version.
+  * Rebuild for Perl 5.8.
+
+ -- Chip Salzenberg <chip@debian.org>  Sun,  1 Sep 2002 03:59:38 -0400
+
 libnet-ftpserver-perl (1.103-1) unstable; urgency=low
 
   * New upstream version.

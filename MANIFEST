@@ -9,13 +9,13 @@ MANIFEST
 Makefile.PL
 Net-FTPServer.spec.PL
 README
+META.yml
 RollingBuild
 TODO
 bin/dbeg1-ftpd.pl
 bin/ftpd.pl
 bin/inmem-ftpd.pl
 bin/ro-ftpd.pl
-debian/README.Debian
 debian/changelog
 debian/control
 debian/copyright

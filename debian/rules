@@ -30,7 +30,8 @@ build-stamp:
 	dh_testdir
 
 	# Add here commands to compile the package.
-	$(PERL) Makefile.PL INSTALLDIRS=vendor
+	NET_FTPSERVER_NO_SLEEP=1 \
+	  $(PERL) Makefile.PL INSTALLDIRS=vendor
 	$(MAKE) OPTIMIZE="$(OPTIMIZE)" LD_RUN_PATH=""
 
 	touch build-stamp
@@ -81,7 +82,7 @@ binary-arch: build install
 	dh_fixperms
 #	dh_makeshlibs
 	dh_installdeb
-	dh_perl 
+	dh_perl -V
 	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums

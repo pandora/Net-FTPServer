@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350filters.t,v 1.4 2002/05/13 15:31:47 rich Exp $
+# $Id: 350filters.t,v 1.6 2003/04/30 23:10:57 rbrown Exp $
 
 use strict;
 use Test;
@@ -9,6 +9,13 @@ use IO::Handle;
 use FileHandle;
 
 BEGIN {
+  `which uudecode` &&
+    `which compress` &&
+    `which gzip` or
+    do {
+      print "1..0 # external filter missing for test.\n";
+      exit;
+    };
   plan tests => 13;
 }
 
@@ -92,7 +99,7 @@ ok (download_file ($tmpfile, "$tmpfile.a"));
 ok (compare_files ($tmpfile, "$tmpfile.a"));
 
 ok (download_file ("$tmpfile.Z", "$tmpfile.a"));
-system ("compress -cd $tmpfile.a > $tmpfile.b") == 0 or die "compress: $!";
+system ("compress -cd < $tmpfile.a > $tmpfile.b") == 0 or die "compress: $!";
 ok (compare_files ($tmpfile, "$tmpfile.b"));
 
 ok (download_file ("$tmpfile.gz", "$tmpfile.a"));
