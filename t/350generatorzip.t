@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350generatorzip.t,v 1.3 2001/10/28 16:31:15 rich Exp $
+# $Id: 350generatorzip.t,v 1.4 2002/05/13 15:31:47 rich Exp $
 
 use strict;
 use Test;
@@ -11,6 +11,19 @@ use FileHandle;
 BEGIN {
   plan tests => 75;
 }
+
+# Skip all tests if Archive::Zip, Compress::Zlib doesn't exist, or if
+# 'unzip' executable is not in the path.
+eval "use Archive::Zip";
+eval "use Compress::Zlib";
+unless (exists $INC{"Archive/Zip.pm"} && exists $INC{"Compress/Zlib.pm"} &&
+	on_path ("unzip"))
+  {
+    for (my $i = 0; $i < 75; ++$i) {
+      skip ("missing support for ZIP files", 1);
+    }
+    exit 0;
+  }
 
 use Net::FTPServer::InMem::Server;
 
@@ -275,4 +288,13 @@ sub download_file
 
     # OK!
     return 1;
+  }
+
+sub on_path
+  {
+    foreach (split /:/, $ENV{PATH})
+      {
+	return 1 if -x "$_/$_[0]";
+      }
+    0;
   }

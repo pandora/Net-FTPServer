@@ -7,20 +7,22 @@
 %define perlversion %(perl -e 'use Config; print $Config{version}, "\\n"')
 
 Summary: Net::FTPServer - an extensible, secure FTP server
-Name: Net-FTPServer
-Version: 1.106
+Name: perl-Net-FTPServer
+Version: 1.108
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
-Source: %{name}-%{version}.tar.gz
+Source: Net-FTPServer-%{version}.tar.gz
 BuildRoot: /var/tmp/%{name}-%{version}-root
-Requires: Archive-Tar >= 0.22
-Requires: Archive-Zip >= 0.11
-Requires: Authen-PAM >= 0.12
-Requires: BSD-Resource >= 1.08
-Requires: Compress-Zlib >= 1.14
-Requires: File-Sync >= 0.09
-Requires: IO-stringy >= 1.220
+BuildRequires: perl-Authen-PAM >= 0.12
+BuildRequires: perl-BSD-Resource >= 1.08
+BuildRequires: perl-File-Sync >= 0.09
+BuildRequires: perl-IO-stringy >= 1.220
+BuildRequires: perl >= %{perlversion}
+Requires: perl-Authen-PAM >= 0.12
+Requires: perl-BSD-Resource >= 1.08
+Requires: perl-File-Sync >= 0.09
+Requires: perl-IO-stringy >= 1.220
 Requires: perl >= %{perlversion}
 
 
@@ -28,7 +30,7 @@ Requires: perl >= %{perlversion}
 
 
 %prep
-%setup -q
+%setup -q -n Net-FTPServer-%{version}
 
 
 %build
@@ -41,12 +43,9 @@ make test
 rm -rf $RPM_BUILD_ROOT
 make NOCONF=1 PREFIX=$RPM_BUILD_ROOT/usr install
 
-mkdir $RPM_BUILD_ROOT/etc
-install -c -m 0644 ftpd.conf $RPM_BUILD_ROOT/etc
-
-mkdir -p $RPM_BUILD_ROOT/usr/share/doc/%{name}-%{version}
+mkdir -p $RPM_BUILD_ROOT/usr/share/doc/Net-FTPServer-%{version}
 cp AUTHORS COPYING FAQ INSTALL README TODO doc/* \
-  $RPM_BUILD_ROOT/usr/share/doc/%{name}-%{version}
+  $RPM_BUILD_ROOT/usr/share/doc/Net-FTPServer-%{version}
 
 
 %clean
@@ -61,7 +60,7 @@ rm -rf $RPM_BUILD_ROOT
 %{perlman3dir}/*.3*
 /usr/sbin/*.pl
 %config(noreplace) /etc/ftpd.conf
-%doc /usr/share/doc/%{name}-%{version}/
+%doc /usr/share/doc/Net-FTPServer-%{version}/
 
 
 %changelog

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 350filters.t,v 1.3 2001/10/28 16:31:14 rich Exp $
+# $Id: 350filters.t,v 1.4 2002/05/13 15:31:47 rich Exp $
 
 use strict;
 use Test;
@@ -11,6 +11,16 @@ use FileHandle;
 BEGIN {
   plan tests => 13;
 }
+
+# Skip all tests if required executable compress doesn't exist (true
+# for patent-free Debian systems, for example).
+unless (on_path ("compress"))
+  {
+    for (my $i = 0; $i < 13; ++$i) {
+      skip ("missing 'compress' command", 1);
+    }
+    exit 0;
+  }
 
 use Net::FTPServer::InMem::Server;
 
@@ -189,4 +199,13 @@ sub compare_files
       or return 0;
 
     return 1;
+  }
+
+sub on_path
+  {
+    foreach (split /:/, $ENV{PATH})
+      {
+	return 1 if -x "$_/$_[0]";
+      }
+    0;
   }
