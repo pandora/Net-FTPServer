@@ -1,6 +1,6 @@
 # Copyright (C) 1999 Bibliotech Ltd., 631-633 Fulham Rd., London SW6 5UQ.
 #
-# $Id: Net-FTPServer.spec.PL,v 1.12 2002/05/13 15:10:43 rich Exp $
+# $Id: Net-FTPServer.spec.PL,v 1.13 2002/05/13 15:42:22 rich Exp $
 
 use strict;
 
@@ -66,6 +66,9 @@ make test
 %install
 rm -rf $RPM_BUILD_ROOT
 make NOCONF=1 PREFIX=$RPM_BUILD_ROOT/usr install
+
+mkdir $RPM_BUILD_ROOT/etc
+install -c -m 0644 ftpd.conf $RPM_BUILD_ROOT/etc
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/doc/Net-FTPServer-%{version}
 cp AUTHORS COPYING FAQ INSTALL README TODO doc/* \

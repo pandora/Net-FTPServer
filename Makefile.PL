@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.20 2002/02/23 15:05:23 rich Exp $
+# $Id: Makefile.PL,v 1.21 2002/05/15 14:15:39 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -170,11 +170,13 @@ EOT
     exit 1;
   }
 
-# Check for at least Perl 5.00503.
-if ($] < 5.00503)
+# The code has only been verified on versions of Perl >= than
+# the following. If you find an earlier version of Perl on which
+# Net::FTPServer runs, please tell me. - rich@annexia.org.
+if ($] < 5.00405)
   {
     print <<EOT;
-Perl version >= 5.00503 is required.
+Perl version >= 5.00405 is required.
 
 EOT
     exit 1;

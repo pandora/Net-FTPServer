@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.10 2002/05/11 16:00:39 rich Exp $
+# $Id: Server.pm,v 1.11 2002/05/15 14:15:43 rich Exp $
 
 =pod
 
@@ -50,7 +50,7 @@ use strict;
 BEGIN { eval "use Authen::PAM;"; }
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.10 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.11 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer;
 use Net::FTPServer::Full::FileHandle;
@@ -126,14 +126,10 @@ sub _password_file
 	my ($pw_username, $pw_crypted_pw, $unix_user, $root_directory)
 	  = split /:/, $_;
 
-	warn "checking $pw_username, pass $pw_crypted_pw ...";
-
 	if ($user eq $pw_username &&
 	    $pw_crypted_pw eq crypt ($pass, $pw_crypted_pw))
 	  {
 	    close PW_FILE;
-
-	    warn "logged in ok!";
 
 	    # Successful login. Remember the real Unix user, which
 	    # we will substitute below.

@@ -1,4 +1,4 @@
-$Id: README,v 1.64 2002/05/13 15:31:47 rich Exp $
+$Id: README,v 1.67 2002/06/20 20:34:51 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,15 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.110: EXPERIMENTAL RELEASE. Workaround for a bug in
+IE 6.2600.0000. This version of IE sends a leading 0 before
+the IP address in the PORT command (eg. PORT 0212,57,32,3,1,2).
+
+Version 1.109: EXPERIMENTAL RELEASE. Tested the FTP server on Perl
+5.00405, so changed the Makefile.PL to allow this version. (Note on
+this version of Perl there are various warnings caused by bugs in Perl
+itself -- ignore them).
 
 Version 1.108: EXPERIMENTAL RELEASE. Tests will now succeed even if
 certain optional packages are not installed, such as for example

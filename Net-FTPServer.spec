@@ -8,7 +8,7 @@
 
 Summary: Net::FTPServer - an extensible, secure FTP server
 Name: perl-Net-FTPServer
-Version: 1.108
+Version: 1.110
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
@@ -42,6 +42,9 @@ make test
 %install
 rm -rf $RPM_BUILD_ROOT
 make NOCONF=1 PREFIX=$RPM_BUILD_ROOT/usr install
+
+mkdir $RPM_BUILD_ROOT/etc
+install -c -m 0644 ftpd.conf $RPM_BUILD_ROOT/etc
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/doc/Net-FTPServer-%{version}
 cp AUTHORS COPYING FAQ INSTALL README TODO doc/* \

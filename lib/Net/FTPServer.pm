@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.183 2002/05/13 15:03:48 rich Exp $
+# $Id: FTPServer.pm,v 1.186 2002/06/20 20:34:58 rich Exp $
 
 =pod
 
@@ -67,7 +67,7 @@ have been installed in C</etc/ftpd.conf>. You will probably need to
 edit this file to suit your local configuration.
 
 Also after doing C<make install>, several start-up scripts will have
-been installed in C</usr/sbin/*ftpd.pl>. (On Debian in
+been installed in C</usr/sbin/*ftpd.pl>. (On Debian in C</usr/bin> or
 C</usr/local/bin>). Each start-up script starts the server in a
 different configuration: either as a full FTP server, or as an
 anonymous-only read-only FTP server, etc.
@@ -157,7 +157,8 @@ Restart C<xinetd> using:
   -s               Run in daemon mode (default: run from inetd)
   -S               Run in background and in daemon mode
   -V               Show version information and exit
-  -C CONF          Use CONF as configuration file (default: /etc/ftpd.conf)
+  -C CONF          Use CONF as configuration file (default:
+                   /etc/ftpd.conf)
   -P PIDFILE       Save pid into PIDFILE (daemon mode only)
   -o option=value  Override config file option with value
   --test           Test mode (used only in automatic testing scripts)
@@ -186,9 +187,13 @@ The next sections talk about each of these possibilities in turn.
 
 =head2 CONFIGURATION
 
-A standard C</etc/ftpd.conf> file is supplied with 
-C<Net::FTPServer> in the distribution. The possible
-configuration options are listed in full below.
+A standard C</etc/ftpd.conf> file is supplied with C<Net::FTPServer>
+in the distribution. The possible configuration options are listed in
+full below.
+
+Simple configuration options can also be given on the command line
+using the C<-o> option. Command line configuration options override
+those from the configuration file.
 
 =over 4
 
@@ -1701,7 +1706,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.183 2002/05/13 15:03:48 rich Exp $
+  200-$Id: FTPServer.pm,v 1.186 2002/06/20 20:34:58 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2068,7 +2073,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.108';
+$VERSION = '1.110';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.
@@ -4803,7 +4808,10 @@ sub _PORT_command
     # The arguments to PORT are a1,a2,a3,a4,p1,p2 where a1 is the
     # most significant part of the address (eg. 127,0,0,1) and
     # p1 is the most significant part of the port.
-    unless ($rest =~ /^([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0)/)
+    # NB: IE 6.0.2600.0000 sends a leading 0 in front of the
+    # first part of the IP address. This is the purpose of the
+    # "0?" in the following pattern.
+    unless ($rest =~ /^(0?[1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0),([1-9][0-9]*|0)/)
       {
 	$self->reply (501, "Syntax error in PORT command.");
 	return;
