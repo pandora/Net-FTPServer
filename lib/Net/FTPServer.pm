@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.35 2000/09/08 10:59:37 rich Exp $
+# $Id: FTPServer.pm,v 1.37 2000/09/13 18:17:57 rich Exp $
 
 =pod
 
@@ -46,6 +46,7 @@ Current features include:
  * Run standalone or from inetd(8).
  * Security features: chroot, resource limits, tainting,
    protection against buffer overflows.
+ * IP-based and/or IP-less virtual hosts.
  * Complete access control system.
  * Anonymous read-only FTP personality.
  * Virtual filesystem allows files to be served
@@ -138,6 +139,145 @@ all possible configurable options, information about
 them and defaults. You should consult the comments in
 this file for authoritative information.
 
+=head2 VIRTUAL HOSTS
+
+C<Net:FTPServer> is capable of hosting multiple FTP sites on
+a single machine. Because of the nature of the FTP protocol,
+virtual hosting is almost always done by allocating a single
+separate IP address per FTP site. However, C<Net::FTPServer>
+also supports an experimental IP-less virtual hosting
+system, although this requires modifications to the client.
+
+Normal (IP-based) virtual hosting is carried out as follows:
+
+ * For each FTP site, allocate a separate IP address.
+ * Configure IP aliasing on your normal interface so that
+   the single physical interface responds to multiple
+   virtual IP addresses.
+ * Add entries (A records) in DNS mapping each site's
+   name to a separate IP address.
+ * Add reverse entries (PTR records) in DNS mapping each
+   IP address back to the site hostname. It is important
+   that both forward and reverse DNS is set up correctly,
+   else virtual hosting may not work.
+ * In /etc/ftpd.conf you will need to add a virtual host
+   section for each site like this:
+
+     <Host sitename>
+
+       ip: 1.2.3.4
+       ... any specific configuration options for this site ...
+
+     </Host>
+
+   You don't in fact need the "ip:" part assuming that
+   your forward and reverse DNS are set up correctly.
+ * If you want to specify a lot of external sites, or
+   generate the configuration file automatically from a
+   database or a script, you may find the <Include filename>
+   syntax useful.
+
+There are examples in C</etc/ftpd.conf>. Here is how
+IP-based virtual hosting works:
+
+ * The server starts by listening on all interfaces.
+ * A connection arrives at one of the IP addresses and a
+   process is forked off.
+ * The child process finds out which interface the
+   client connected to and reverses the name.
+ * If:
+     the IP address matches one of the "ip:" declarations
+     in any of the "Host" sections, 
+   or:
+     there is a reversal for the name, and the name
+     matches one of the "Host" sections in the configuration
+     file,
+   then:
+     configuration options are read from that
+     section of the file and override any global configuration
+     options specified elsewhere in the file.
+ * Otherwise, the global configuration options only
+   are used.
+
+IP-less virtual hosting is an experimental feature. It
+requires the client to send a C<HOST> command very early
+on in the command stream -- before C<USER> and C<PASS>. The
+C<HOST> command explicitly gives the hostname that the
+FTP client is attempting to connect to, and so allows
+many FTP sites to be multiplexed onto a single IP
+address. At the present time, I am not aware of I<any>
+FTP clients which implement the C<HOST> command, although
+they will undoubtedly become more common in future.
+
+This is how to set up IP-less virtual hosting:
+
+ * Add entries (A or CNAME records) in DNS mapping the
+   name of each site to a single IP address.
+ * In /etc/ftpd.conf you will need to list the same single
+   IP address to which all your sites map:
+
+     virtual host multiplex: 1.2.3.4
+
+ * In /etc/ftpd.conf you will need to add a virtual host
+   section for each site like this:
+
+     <Host sitename>
+
+       ... any specific configuration options for this site ...
+
+     </Host>
+
+Here is how IP-less virtual hosting works:
+
+ * The server starts by listening on one interface.
+ * A connection arrives at the IP address and a
+   process is forked off.
+ * The IP address matches "virtual host multiplex"
+   and so no IP-based virtual host processing is done.
+ * One of the first commands that the client sends is
+   "HOST" followed by the hostname of the site.
+ * If there is a matching "Host" section in the
+   configuration file, then configuration options are
+   read from that section of the file and override any
+   global configuration options specified elsewhere in
+   the file.
+ * If there is no matching "Host" section then the
+   global configuration options alone are used.
+
+The client is not permitted to issue the C<HOST> command
+more than once, and is not permitted to issue it after
+login.
+
+=head2 VIRTUAL HOSTING AND SECURITY
+
+Only certain configuration options are available inside
+the E<lt>HostE<gt> sections of the configuration file.
+Generally speaking, the only configuration options you
+can put here are ones which take effect after the
+site name has been determined -- hence "allow anonymous"
+is OK (since itE<39>s an option which is parsed after
+determining the site name and during log in), but
+"port" is not (since it is parsed long before any
+clients ever connect).
+
+Make sure your default global configuration is
+secure. If you are using IP-less virtual hosting,
+this is particularly important, since if the client
+never sends a C<HOST> command, the client gets
+the global configuration. Even with IP-based virtual
+hosting it may be possible for clients to sometimes
+get the global configuration, for example if your
+local name server fails.
+
+IP-based virtual hosting always takes precedence
+above IP-less virtual hosting.
+
+With IP-less virtual hosting, access control cannot
+be performed on a per-site basis. This is because the
+client has to issue commands (ie. the C<HOST> command
+at least) before the site name is known to the server.
+However you may still have a global "access control rule".
+
 =head2 LOADING CUSTOMIZED COMMAND SETS
 
 XXX
@@ -195,9 +335,12 @@ use Sys::Syslog qw(:DEFAULT setlogsock);
 use Socket;
 use IO::Socket;
 use IO::Socket::INET;
+use IO::File;
 use POSIX;
 use BSD::Resource;
 use Carp;
+use Digest::MD5;
+use Authen::PAM;
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
@@ -208,7 +351,7 @@ use vars qw(@_default_commands
 	    $_default_timeout
 	    $VERSION $RELEASE);
 
-$VERSION = '0.4.5';
+$VERSION = '0.5.0';
 $RELEASE = 1;
 
 @_default_commands
@@ -233,6 +376,8 @@ $RELEASE = 1;
      "LANG",
      # NcFTP sends the CLNT command, I know not from what RFC.
      "CLNT",
+     # Experimental IP-less virtual hosting.
+     "HOST",
     );
 
 @_default_site_commands
@@ -399,18 +544,55 @@ sub run
     # Hook just after accepting the connection.
     $self->post_accept_hook;
 
+    # Get the sockname of the socket so we know which interface
+    # the client is bound to.
+    my $sockname = getsockname STDIN;
+    my ($sockport, $sockaddr) = unpack_sockaddr_in ($sockname);
+    my $sockaddrstring = inet_ntoa ($sockaddr);
+
+    # Virtual hosts.
+    my $sitename;
+
+    if ($self->config ("enable virtual hosts"))
+      {
+	my $virtual_host_multiplex = $self->config ("virtual host multiplex");
+
+	# IP-based virtual hosting?
+	unless ($virtual_host_multiplex &&
+		$virtual_host_multiplex eq $sockaddrstring)
+	  {
+	    # Look for a matching "ip:" configuration option in
+	    # a <Host> section.
+	    $sitename = $self->ip_host_config ($sockaddrstring);
+
+	    unless ($sitename)
+	      {
+		# Try reversing the IP address in DNS instead.
+		$sitename = gethostbyaddr ($sockaddr, AF_INET);
+	      }
+
+	    if ($self->{debug})
+	      {
+		if ($sitename)
+		  {
+		    syslog "info",
+		           "IP-based virtual hosts: set site to $sitename";
+		  }
+		else
+		  {
+		    syslog "info",
+		           "IP-based virtual hosts: no site found";
+		  }
+	      }
+	  }
+      }
+
     # Get the peername and other details of this socket.
     my $peername = getpeername STDIN;
 
     my ($peerport, $peeraddr) = unpack_sockaddr_in ($peername);
     my $peeraddrstring = inet_ntoa ($peeraddr);
     my $peerhostname;
-
-    # Get the sockname of the socket so we know which interface
-    # the client is bound to.
-    my $sockname = getsockname STDIN;
-    my ($sockport, $sockaddr) = unpack_sockaddr_in ($sockname);
-    my $sockaddrstring = inet_ntoa ($sockaddr);
 
     # Resolve the address.
     if ($self->config ("resolve addresses"))
@@ -437,15 +619,16 @@ sub run
       }
 
     # Set up request information.
+    $self->{sockname} = $sockname;
+    $self->{sockport} = $sockport;
+    $self->{sockaddr} = $sockaddr;
+    $self->{sockaddrstring} = $sockaddrstring;
+    $self->{sitename} = $sitename;
     $self->{peername} = $peername;
     $self->{peerport} = $peerport;
     $self->{peeraddr} = $peeraddr;
     $self->{peeraddrstring} = $peeraddrstring;
     $self->{peerhostname} = $peerhostname;
-    $self->{sockname} = $sockname;
-    $self->{sockport} = $sockport;
-    $self->{sockaddr} = $sockaddr;
-    $self->{sockaddrstring} = $sockaddrstring;
     $self->{authenticated} = 0;
     $self->{loginattempts} = 0;
 
@@ -605,11 +788,12 @@ sub run
 	  _escape($cmd), _escape($rest)
 	  if $self->{debug};
 
-	# All commands except USER, PASS, LANG, FEAT, QUIT and HELP
+	# All commands except HOST, USER, PASS, LANG, FEAT, QUIT and HELP
 	# require user to be authenticated.
 	if (!$self->{authenticated} &&
 	    $cmd ne "USER" && $cmd ne "PASS" && $cmd ne "LANG" &&
-	    $cmd ne "LANG" && $cmd ne "HELP" && $cmd ne "QUIT")
+	    $cmd ne "LANG" && $cmd ne "HELP" && $cmd ne "QUIT" &&
+	    $cmd ne "HOST")
 	  {
 	    $self->reply (530, "Not logged in.");
 	    next;
@@ -665,7 +849,9 @@ sub _get_configuration
       if defined $self->{_args_run_in_background};
 
     # Read the configuration file.
-    $self->_open_config_file;
+    $self->{_config} = {};
+    $self->{_config_ip_host} = {};
+    $self->_open_config_file ($self->{_config_file});
 
     # Set debugging state.
     if (defined $debug) {
@@ -789,20 +975,20 @@ sub _be_daemon
 sub _open_config_file
   {
     my $self = shift;
-    my $config_file = $self->{_config_file};
+    my $config_file = shift;
 
-    $self->{_config} = {};
-
-    unless (open CONFIG, "<$config_file")
+    my $config = new IO::File "<$config_file";
+    unless ($config)
       {
-	warn "cannot open configuration file: $config_file: $!";
+	warn "cannot open configuration file: $config_file: $! (skipping)";
 	return;
       }
 
     my $lineno = 0;
+    my $sitename;
 
     # Read in the configuration options from the file.
-    while (<CONFIG>)
+    while ($_ = $config->getline)
       {
 	$lineno++;
 
@@ -816,15 +1002,44 @@ sub _open_config_file
 	# More lines?
 	while (/\\$/)
 	  {
-	    $_ .= <CONFIG>;
+	    $_ .= $config->getline;
 	    $lineno++;
+	  }
+
+	# Special treatment: <Include> files.
+	if (/^\s*<Include\s+(.*)>\s*$/i)
+	  {
+	    $self->_open_config_file ($1);
+	    next;
+	  }
+
+	# Special treatment: <Host> sections.
+	if (/^\s*<Host\s+(.*)>\s*$/i)
+	  {
+	    if ($sitename)
+	      {
+		die "$config_file:$lineno: unfinished <Host> section";
+	      }
+
+	    $sitename = $1;
+	    next;
+	  }
+
+	if (/^\s*<\/Host>\s*$/i)
+	  {
+	    unless ($sitename)
+	      {
+		die "$config_file:$lineno: unmatched </Host>";
+	      }
+
+	    $sitename = undef;
+	    next;
 	  }
 
 	# Split the line on the first : character.
 	unless (/^(.*?):(.*)$/)
 	  {
-	    syslog "error", "$config_file:$lineno: syntax error in configuration file";
-	    exit 1
+	    die "$config_file:$lineno: syntax error in configuration file";
 	  }
 
 	my $key = $1;
@@ -841,12 +1056,20 @@ sub _open_config_file
 	$key = lc ($key);
 	$key =~ tr/ / /s;
 
+	# If the key is ``ip:'' then we treat it specially - adding it
+	# to a hash from IP addresses to sites.
+	if ($key eq "ip")
+	  {
+	    $self->{_config_ip_host}{$value} = $sitename;
+	  }
+
+	# Prefix the sitename, if defined.
+	$key = "$sitename:$key" if $sitename;
+
 	# Save this.
 	$self->{_config}{$key} = [] unless exists $self->{_config}{$key};
 	push @{$self->{_config}{$key}}, $value;
       }
-
-    close CONFIG;
 
 #    # Print out the configuration options.
 #    foreach (sort keys %{$self->{_config}})
@@ -923,11 +1146,29 @@ sub config
     $key = lc ($key);
     $key =~ tr/ / /s;
 
-    unless (exists $self->{_config}{$key})
+    # Try site-specific configuration option.
+    if ($self->{sitename} &&
+	exists $self->{_config}{"$self->{sitename}:$key"})
       {
-	unless (wantarray) { return undef } else { return () }
+	unless (wantarray)
+	  {
+	    # Return scalar value, but warn if there are many values
+	    # for this configuration operation.
+	    if (@{$self->{_config}{"$self->{sitename}:$key"}} > 1)
+	      {
+		warn "called config in scalar context for an array valued key: $key";
+	      }
+
+	    return $self->{_config}{"$self->{sitename}:$key"}[0];
+	  }
+	else
+	  {
+	    return @{$self->{_config}{"$self->{sitename}:$key"}};
+	  }
       }
-    else
+
+    # Try global configuration option.
+    if (exists $self->{_config}{$key})
       {
 	unless (wantarray)
 	  {
@@ -946,9 +1187,74 @@ sub config
 	  }
       }
 
+    # Nothing found.
+    unless (wantarray) { return undef } else { return () }
+  }
 
+=pod
+
+=item $ftps->ip_host_config ($ip_addr);
+
+Look for a E<lt>HostE<gt> section which contains "ip: $ip_addr".
+If one is found, return the site name of the Host section. Otherwise
+return undef.
+
+=cut
+
+sub ip_host_config
+  {
+    my $self = shift;
+    my $ip_addr = shift;
+
+    if (exists $self->{_config_ip_host}{$ip_addr})
+      {
+	return $self->{_config_ip_host}{$ip_addr};
+      }
 
     return undef;
+  }
+
+sub _HOST_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    # HOST with no parameters just prints out the current site name.
+    if ($rest eq "")
+      {
+	if ($self->{sitename}) {
+	  $self->reply (200, "HOST is set to $self->{sitename}.");
+	} else {
+	  $self->reply (200, "HOST is not set.");
+	}
+	return;
+      }
+
+    # The user may only issue HOST before log in.
+    if ($self->{authenticated})
+      {
+	$self->reply (501, "Cannot issue HOST command after logging in.");
+	return;
+      }
+
+    # You cannot change HOST.
+    if ($self->{sitename} && $self->{sitename} ne $rest)
+      {
+	$self->reply (501, "HOST already set to $self->{sitename}.");
+	return;
+      }
+
+    # Check that the name is reasonable.
+    unless ($rest =~ /^[-a-z0-9.]+$/i)
+      {
+	$self->reply (501, "HOST syntax error.");
+	return;
+      }
+
+    # Allow the change.
+    $self->{sitename} = $rest;
+    $self->reply (200, "HOST set to $self->{sitename}.");
   }
 
 sub _USER_command
@@ -2131,11 +2437,7 @@ sub _SITE_EXEC_command
     my $rest = shift;
 
     # This command is DISABLED by default.
-    my $enabled
-      = defined $self->config ("allow site exec command")
-	? $self->config ("allow site exec command") : 0;
-
-    unless ($enabled)
+    unless ($self->config ("allow site exec command"))
       {
 	$self->reply (502, "SITE EXEC is disabled at this site.");
 	return;
@@ -2293,22 +2595,10 @@ sub _SITE_CHECKSUM_command
 	return;
       }
 
-    # Using the eval here ensures that we don't fail totally
-    # if Digest::MD5 is not installed.
-    eval
-      {
-	use Digest::MD5;
+    my $ctx = Digest::MD5->new;
+    $ctx->addfile ($file);	# IO::Handles are also filehandle globs.
 
-	my $ctx = Digest::MD5->new;
-	$ctx->addfile ($file);	# IO::Handles are also filehandle globs.
-
-	$self->reply (200, $ctx->hexdigest . " " . $filename);
-      };
-    if ($@)
-      {
-	$self->reply (500, "Cannot open MD5 library.");
-	return;
-      }
+    $self->reply (200, $ctx->hexdigest . " " . $filename);
   }
 
 sub _SITE_IDLE_command
@@ -3714,14 +4004,8 @@ sub _pam_check_password
     # of an abuse of the PAM protocol. However the FTP protocol
     # gives us little choice in the matter.
 
-    # The ``eval'' means we only require the PAM code if we
-    # actually require PAM authentication support in the
-    # configuration file.
-
     eval
       {
-	use Authen::PAM;
-
 	my $pam_conv_func = sub
 	  {
 	    my @res;

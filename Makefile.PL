@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.6 2000/09/08 10:45:01 rich Exp $
+# $Id: Makefile.PL,v 1.8 2000/09/13 18:17:57 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -27,12 +27,13 @@ WriteMakefile(
 
 	      PREREQ_PM =>
 	      {
-	       #Authen::PAM => 0,
+	       Authen::PAM => 0,
 	       BSD::Resource => 0,
 	       Carp => 0,
-	       #Digest::MD5 => 0,
+	       Digest::MD5 => 0,
 	       Getopt::Long => 0,
 	       IO::Dir => 0,
+	       IO::File => 0,
 	       IO::Socket => 0,
 	       IO::Socket::INET => 0,
 	       POSIX => 0,
