@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.6 2001/07/04 10:32:05 rich Exp $
+# $Id: DirHandle.pm,v 1.7 2001/07/25 19:18:23 rich Exp $
 
 =pod
 
@@ -234,6 +234,11 @@ sub status
     my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
 	$atime, $mtime, $ctime, $blksize, $blocks)
       = lstat $self->{_pathname};
+
+    # If the directory has been removed since we created this
+    # handle, then $dev will be undefined. Return dummy status
+    # information.
+    return ("d", 0000, 1, "-", "-", 0, 0) unless $dev;
 
     # Generate printable user/group.
     my $user = getpwuid ($uid) || "-";

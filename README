@@ -1,4 +1,4 @@
-$Id: README,v 1.13 2001/07/24 09:54:35 rich Exp $
+$Id: README,v 1.18 2001/07/26 13:49:00 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -63,6 +63,12 @@ Send feedback, bug reports, questions and patches to the author,
 Richard Jones <rich@annexia.org>.
 
 CHANGE LOG
+
+Version 1.0.23: In Full personality, load Authen::PAM before forking.
+Removed some race conditions involving allocating and deallocating
+memory in signal handlers. Removed a race condition where a file or
+directory is removed before being ``stat''ed. Tested under load with
+1-128 clients. Added ``error log'' configuration option.
 
 Version 1.0.22: Check for most recent version of IO-stringy installed
 before proceeding. Added xfer logging (Rob). Don't try to allocate or

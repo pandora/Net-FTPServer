@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.109 2001/07/24 09:54:36 rich Exp $
+# $Id: FTPServer.pm,v 1.113 2001/07/26 13:49:01 rich Exp $
 
 =pod
 
@@ -206,6 +206,18 @@ The equivalent command line option is C<-S>.
 Default: 0
 
 Example: C<run in background: 1>
+
+=item error log
+
+If set, then all warning and error messages are appended to
+this file. If not set, warning and error messages get sent to
+STDERR and to syslog.
+
+Having an error log is I<highly recommended>.
+
+Default: (not set, warnings and errors go to syslog)
+
+Example: C<error log: /var/log/ftpd.errors>
 
 =item maintainer email
 
@@ -1427,7 +1439,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.109 2001/07/24 09:54:36 rich Exp $
+  200-$Id: FTPServer.pm,v 1.113 2001/07/26 13:49:01 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1717,8 +1729,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.22';
-$RELEASE = 1;
+$VERSION = '1.0.23';
+$RELEASE = 6;
 
 use Config;
 use Getopt::Long qw(GetOptions);
@@ -1878,6 +1890,10 @@ sub run
       $self->config ("max clients message") ||
 	"Maximum connections reached";
 
+    # Clear urgent flag. We must do this since it is set in a signal
+    # handler, and we want to avoid allocating memory there.
+    $self->{_urgent} = 0;
+
     # Open syslog.
     $self->{_enable_syslog} =
       (!defined $self->config ("enable syslog") ||
@@ -1897,19 +1913,40 @@ sub run
 
       }
 
-    # Set up a hook for warn and die so that these cause messages to
-    # be echoed to the syslog.
-    $SIG{__WARN__} = sub {
-      $self->log ("warning", $_[0]);
-      warn $_[0];
-    };
-    $SIG{__DIE__} = sub {
-      $self->log ("err", $_[0]);
-      die $_[0];
-    };
+    # Handle error and warning messages. If error log is set (which
+    # is highly recommended BTW), these are appended directly to
+    # that file. If error log is not set, then we use a hack which
+    # directs those messages to syslog.
+
+    my $error_log = $self->config ("error log");
+    if ($error_log)
+      {
+	open STDERR, ">>$error_log" or die "$error_log: $!";
+      }
+    else
+      {
+	# Set up a hook for warn and die so that these cause messages to
+	# be echoed to the syslog.
+	$SIG{__WARN__} = sub {
+	  $self->log ("warning", $_[0]);
+	  warn $_[0];
+	};
+	$SIG{__DIE__} = sub {
+	  $self->log ("err", $_[0]);
+	  die $_[0];
+	};
+      }
 
     # Set up signal handlers to give us a clean exit.
-    # Note that these are inherited if we fork.
+    # NB:
+    # (1) These are inherited if we fork.
+    # (2) You must be very very careful not to allocate or deallocate
+    #     memory inside a signal handler. Doing so will corrupt memory
+    #     and cause the parent to die with errors like this:
+    #       Attempt to free unreferenced scalar
+    #       Attempt to free non-existent shared string
+    #       Segmentation fault
+    #
     $SIG{PIPE} = sub {
       $self->log ("info", "client closed connection abruptly") if $self;
       exit;
@@ -2045,6 +2082,9 @@ sub run
 
 	local $SIG{HUP} = sub {
 	  # Added 26 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+
+	  # RWMJ: This code is unsafe, since it does memory allocation
+	  # and deallocation in the parent process in a signal handler. XXX
 
 	  # Code to allow priviledged port bind()ing capability by
 	  # unpriviledged user by reusing an already-bind()ed file
@@ -2739,11 +2779,9 @@ sub _be_daemon
     # SIGCHLD is triggered when a child process exits
     $SIG{CHLD} = sub
       {
-	my $kid;
 	# Clear Zombies
-	while (($kid = waitpid (-1,WNOHANG)) > 0)
+	while (waitpid (-1,WNOHANG) > 0)
 	  {
-	    # Client $kid just finished
 	    $self->{_smelled_zombie} = 1;
 	  }
       };
