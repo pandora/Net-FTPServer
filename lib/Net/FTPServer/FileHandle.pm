@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.7 2000/09/12 12:50:55 rich Exp $
+# $Id: FileHandle.pm,v 1.9 2000/09/27 15:12:52 rich Exp $
 
 =pod
 
@@ -49,6 +49,8 @@ use vars qw($VERSION);
 $VERSION = '1.0';
 
 use Net::FTPServer::Handle;
+
+use Carp qw(confess);
 
 use vars qw(@ISA);
 
@@ -86,7 +88,7 @@ sub filename
 	return $1;
       }
 
-    die "incorrect pathname: ", $self->{_pathname};
+    confess "incorrect pathname: ", $self->{_pathname};
   }
 
 =pod
@@ -99,12 +101,7 @@ Return the directory which contains this file.
 
 sub dir
   {
-    my $self = shift;
-
-    my $dirname = $self->{_pathname};
-    $dirname =~ s,[^/]+$,,;
-
-    return Net::FTPServer::DirHandle->new ($self->{ftps}, $dirname);
+    confess "virtual function";
   }
 
 =pod
@@ -118,10 +115,7 @@ L<IO::Handle(3)>) in either read or write mode.
 
 sub open
   {
-    my $self = shift;
-    my $mode = shift;
-
-    return new IO::File $self->{_pathname}, $mode;
+    confess "virtual function";
   }
 
 =item $rv = $fileh->delete;
@@ -133,11 +127,7 @@ successful, then return 0, else if there was an error return -1.
 
 sub delete
   {
-    my $self = shift;
-
-    unlink $self->{_pathname} or return -1;
-
-    return 0;
+    confess "virtual function";
   }
 
 =pod
@@ -150,9 +140,7 @@ Return true if the current user can read the given file.
 
 sub can_read
   {
-    my $self = shift;
-
-    return -r $self->{_pathname};
+    confess "virtual function";
   }
 
 =pod
@@ -165,9 +153,7 @@ Return true if the current user can overwrite the given file.
 
 sub can_write
   {
-    my $self = shift;
-
-    return -w $self->{_pathname};
+    confess "virtual function";
   }
 
 =pod
@@ -180,9 +166,7 @@ Return true if the current user can append to the given file.
 
 sub can_append
   {
-    my $self = shift;
-
-    return -w $self->{_pathname};
+    confess "virtual function";
   }
 
 =pod
@@ -195,9 +179,7 @@ Return true if the current user can change the name of the given file.
 
 sub can_rename
   {
-    my $self = shift;
-
-    return $self->dir->can_write;
+    confess "virtual function";
   }
 
 =pod
@@ -210,9 +192,7 @@ Return true if the current user can delete the given file.
 
 sub can_delete
   {
-    my $self = shift;
-
-    return $self->dir->can_write;
+    confess "virtual function";
   }
 
 1 # So that the require or use succeeds.

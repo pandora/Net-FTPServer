@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.9 2000/09/12 12:50:55 rich Exp $
+# $Id: DirHandle.pm,v 1.11 2000/09/27 15:12:52 rich Exp $
 
 =pod
 
@@ -48,7 +48,6 @@ use strict;
 use vars qw($VERSION);
 $VERSION = '1.0';
 
-use IO::Dir;
 use Carp qw(confess);
 
 use Net::FTPServer::Handle;
@@ -130,29 +129,7 @@ undef.
 
 sub get
   {
-    my $self = shift;
-    my $filename = shift;
-
-    # None of these cases should ever happen.
-    confess unless $filename;
-    confess if $filename =~ /\//;
-    confess if $filename eq "..";
-    confess if $filename eq ".";
-
-    my $pathname = $self->{_pathname} . $filename;
-    lstat $pathname;
-
-    if (-d _)
-      {
-	return Net::FTPServer::DirHandle->new ($self->{ftps}, $pathname."/");
-      }
-
-    if (-e _)
-      {
-	return Net::FTPServer::FileHandle->new ($self->{ftps}, $pathname);
-      }
-
-    return undef;
+    confess "virtual function";
   }
 
 =pod
@@ -172,48 +149,7 @@ The list is sorted into alphabetical order automatically.
 
 sub list
   {
-    my $self = shift;
-    my $wildcard = shift;
-
-    # Convert wildcard to a regular expression.
-    if ($wildcard)
-      {
-	$wildcard =~ s,([^?*a-zA-Z0-9]),\\$1,g; # Escape punctuation.
-	$wildcard =~ s,\*,.*,g;	# Turn * into .*
-	$wildcard =~ s,\?,.,g;	# Turn ? into .
-	$wildcard = "^$wildcard\$"; # Bracket it.
-      }
-
-    my $dir = new IO::Dir ($self->{_pathname})
-      or return undef;
-
-    my $file;
-    my @filenames = ();
-
-    while (defined ($file = $dir->read))
-      {
-	next if $file eq "." || $file eq "..";
-	next if $wildcard && $file !~ /$wildcard/;
-
-	push @filenames, $file;
-      }
-
-    $dir->close;
-
-    @filenames = sort @filenames;
-    my @array = ();
-
-    foreach $file (@filenames)
-      {
-	my $handle
-	  = -d "$self->{_pathname}$file"
-	    ? Net::FTPServer::DirHandle->new ($self->{ftps}, $self->{_pathname} . $file)
-	    : Net::FTPServer::FileHandle->new ($self->{ftps}, $self->{_pathname} . $file);
-
-	push @array, [ $file, $handle ];
-      }
-
-    return \@array;
+    confess "virtual function";
   }
 
 =pod
@@ -237,18 +173,7 @@ The list is sorted into alphabetical order automatically.
 
 sub list_status
   {
-    my $self = shift;
-
-    my $arrayref = $self->list (@_);
-    my $elem;
-
-    foreach $elem (@$arrayref)
-      {
-	my @status = $elem->[1]->status;
-	push @$elem, \@status;
-      }
-
-    return $arrayref;
+    confess "virtual function";
   }
 
 =item $rv = $dirh->delete;
@@ -263,11 +188,7 @@ is empty.
 
 sub delete
   {
-    my $self = shift;
-
-    rmdir $self->{_pathname} or return -1;
-
-    return 0;
+    confess "virtual function";
   }
 
 =item $rv = $dirh->mkdir ($name);
@@ -279,14 +200,7 @@ C<$dirh>.
 
 sub mkdir
   {
-    my $self = shift;
-    my $name = shift;
-
-    die if $name =~ /\//;	# Should never happen.
-
-    mkdir $self->{_pathname} . $name, 0755 or return -1;
-
-    return 0;
+    confess "virtual function";
   }
 
 =item $file = $dirh->open ($filename, "r"|"w"|"a");
@@ -299,18 +213,12 @@ returns a C<IO::File> handle object.
 
 sub open
   {
-    my $self = shift;
-    my $filename = shift;
-    my $mode = shift;
-
-    die if $filename =~ /\//;	# Should never happen.
-
-    return new IO::File $self->{_pathname} . $filename, $mode;
+    confess "virtual function";
   }
 
 =pod
 
-=item $rv = $fileh->can_write;
+=item $rv = $dirh->can_write;
 
 Return true if the current user can write into the current
 directory (ie. create files, rename files, delete files, etc.).
@@ -319,14 +227,12 @@ directory (ie. create files, rename files, delete files, etc.).
 
 sub can_write
   {
-    my $self = shift;
-
-    return -w $self->{_pathname};
+    confess "virtual function";
   }
 
 =pod
 
-=item $rv = $fileh->can_delete;
+=item $rv = $dirh->can_delete;
 
 Return true if the current user can delete the current
 directory.
@@ -335,16 +241,12 @@ directory.
 
 sub can_delete
   {
-    my $self = shift;
-
-    return 0 if $self->is_root;
-
-    return $self->parent->can_write;
+    confess "virtual function";
   }
 
 =pod
 
-=item $rv = $fileh->can_enter;
+=item $rv = $dirh->can_enter;
 
 Return true if the current user can enter the current
 directory.
@@ -353,14 +255,12 @@ directory.
 
 sub can_enter
   {
-    my $self = shift;
-
-    return -x $self->{_pathname};
+    confess "virtual function";
   }
 
 =pod
 
-=item $rv = $fileh->can_list;
+=item $rv = $dirh->can_list;
 
 Return true if the current user can list the current
 directory.
@@ -369,14 +269,12 @@ directory.
 
 sub can_list
   {
-    my $self = shift;
-
-    return -r $self->{_pathname};
+    confess "virtual function";
   }
 
 =pod
 
-=item $rv = $fileh->can_rename;
+=item $rv = $dirh->can_rename;
 
 Return true if the current user can rename the current
 directory.
@@ -385,14 +283,12 @@ directory.
 
 sub can_rename
   {
-    my $self = shift;
-
-    return $self->parent->can_write;
+    confess "virtual function";
   }
 
 =pod
 
-=item $rv = $fileh->can_mkdir;
+=item $rv = $dirh->can_mkdir;
 
 Return true if the current user can create subdirectories of the
 current directory.
@@ -401,9 +297,7 @@ current directory.
 
 sub can_mkdir
   {
-    my $self = shift;
-
-    return -w $self->{_pathname};
+    confess "virtual function";
   }
 
 1 # So that the require or use succeeds.

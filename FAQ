@@ -1,0 +1,27 @@
+Frequently Asked Questions (FAQ) for Net::FTPServer
+---------------------------------------------------
+$Id: FAQ,v 1.3 2000/09/27 15:12:52 rich Exp $
+
+(1) When I start ftpd, it prints:
+
+    Use of uninitialized value at FTPServer.pm line ???.
+    Bad arg length for Socket::unpack_sockaddr_in, length is 0, should be 16
+      at FTPServer.pm line ???.
+
+ A: If you want to start FTP in standalone mode as a daemon, use the -S
+    options (ie. ``ftpd -S''). You will need to run it as root.
+
+(2) With Perl 5.6.0, starting ftpd reports:
+
+    Usage: Sys::Syslog::_PATH_LOG() at
+    /usr/local.lib/perl5/5.6.0/i686-linux/Sys/Sys
+
+ A: This appears to be a known bug in Sys::Syslog with Perl 5.6.0.
+    Please see the following Usenet threads for more information
+    and patches:
+
+	http://www.deja.com/[ST_rn=ps]/getdoc.xp?AN=607543064&fmt=text
+
+	http://x57.deja.com/[ST_rn=ps]/getdoc.xp?AN=638516794&search=thread&CONTEXT=970047424.333185098&hitnum=9
+
+    (Thanks to rburque <rburque@holstein.com> for reporting this.)

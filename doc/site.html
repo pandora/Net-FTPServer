@@ -18,28 +18,67 @@
 	      <td>
 		<h3>News</h3>
 
-		<p><b>Wed Sep 13 19:08:41 BST 2000</b></p>
+		<p><b>Fri Nov  3 13:38:14 GMT 2000</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.5.0.tar.gz">Version 0.5.0</a>
-		  released. This major release incorporates support
-		  for both IP-based and IP-less virtual hosting.
+		  <a href="files/Net-FTPServer-0.9.1.tar.gz">Version 0.9.1</a>
+		  released. Many documentation updates. Added
+		  easily customizable SITE commands.
 		</p>
 
-		<p><b>Tue Sep 12 13:47:25 BST 2000</b></p>
+		<p><b>Thu Nov  2 18:39:30 GMT 2000</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.4.5.tar.gz">Version 0.4.5</a>
-		  released. This version contains a few modifications
-		  for submission to <a href="http://www.cpan.org/">CPAN</a>.
+		  <a href="files/Net-FTPServer-0.9.0.tar.gz">Version 0.9.0</a>
+		  released. Added a anonymous read-only FTP
+		  personality. With this personality, the
+		  FTP server contains <i>no code</i> which could
+		  be used to write, create directories, delete
+		  files, etc. The FTP server will also only
+		  accept anonymous logins, and contains no
+		  code for checking <tt>/etc/passwd</tt> or PAM.
+		  This is a candidate for a 1.0.0 release.
+		  Please download it, play with it, and send
+		  me your feedback.
 		</p>
 
-		<p><b>Fri Sep  8 11:11:54 BST 2000</b></p>
+		<p><b>Thu Nov  2 18:09:12 GMT 2000</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.4.4.tar.gz">Version 0.4.4</a>
-		  released (first public release).
+		  <a href="files/Net-FTPServer-0.8.4.tar.gz">Version 0.8.4</a>
+		  released. Added the missing database schema.
 		</p>
+
+		<p><b>Thu Nov  2 18:01:52 GMT 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.8.3.tar.gz">Version 0.8.3</a>
+		  released. This version has a fairly complete
+		  example database back-end for those that
+		  wanted to see that.
+		</p>
+
+		<p><b>Thu Nov  2 14:10:21 GMT 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.8.0.tar.gz">Version 0.8.0</a>
+		  released. This is a highly experimental release
+		  which adds a partially implemented database
+		  back-end. This is just for people interested
+		  in database back-ends to the FTP server.
+		</p>
+
+		<p><b>Wed Oct 25 10:31:45 BST 2000</b></p>
+
+		<p>
+		  <a href="files/Net-FTPServer-0.7.2.tar.gz">Version 0.7.2</a>
+		  released. This fixes a problem when 
+		  the FTP server is run from inetd
+		  (thanks again to Matthew Gabeler-Lee).
+		</p>
+
+		<p align="right"><a href="oldnews.html">Old news ...</a></p>
+
 	      </td>
 	    </tr>
 	  </table>
@@ -126,8 +165,17 @@
 		</p>
 
 		<p>
-		  Latest version:
-		  <a href="files/Net-FTPServer-0.5.0.tar.gz">0.5.0</a>
+		  Latest stable version:
+		  <a href="files/Net-FTPServer-0.7.2.tar.gz">0.7.2</a>
+		</p>
+
+		<p>
+		  Latest development version:
+		  <a href="files/Net-FTPServer-0.9.1.tar.gz">0.9.1</a>
+		</p>
+
+		<p align="right">
+		  <a href="http://www.annexia.org/cgi-bin/autopatch.pl?dir=ftp">Patches between versions ...</a>
 		</p>
 
 		<p align="right">
@@ -147,7 +195,8 @@
 		  <li> Authen::PAM
 		  <li> BSD::Resource
 		  <li> Digest::MD5
-		  <li> perl (we have tested this on 5.00503 only)
+		  <li> perl (we have tested this on 5.00503 only;
+		    read the FAQ first if you have 5.6.0)
 		  <li> Some sort of Unix variant (we have tested
 		    this on Linux 2.2 only)
 		</ul>
@@ -183,13 +232,39 @@
 		</p>
 
 		<ul>
-		  <li> <a href="http://www.wu-ftpd.org/">Washington
+		  <li>
+		    <a href="http://www.wu-ftpd.org/">Washington
 		      University WU-FTPD</a>
-		  <li> <a href="http://www.proftpd.net/">The
-		      ProFTPD project</a>
-		  <li> <a href="http://www.glftpd.com/">GLFTPD</a>
-		    (a featureful but non-free FTP server).
+		  <li>
+		    <a href="http://www.proftpd.net/">The ProFTPD project</a>
+		  <li>
+		    <a href="http://www.glftpd.com/">GLFTPD</a>
+		    - a featureful but non-free FTP server.
+		  <li>
+		    <a href="http://cr.yp.to/publicfile.html">publicfile</a>
+		    - a secure anonymous-only HTTP and FTP server.
 		</ul>
+
+		<p>
+		  Documentation:
+		</p>
+
+		<ul>
+		  <li>
+		    <a href="http://www.arach.net.au/~wildfire/ftp-host.txt">Description
+		      of FTP virtual server selection command.</a>
+		    This document describes an experimental HOST
+		    command, and is partially implemented as of
+		    version 0.5.0.
+		  <li>
+		    <a href="http://cr.yp.to/ftp.html">Dan Bernstein's
+		      description of FTP</a> as found ``in the wild''.
+		</ul>
+
+		<p>
+		  <i>Note that the package contains all the relevant
+		    RFCs and Internet Drafts.</i>
+		</p>
 	      </td>
 	    </tr>
 	  </table>
@@ -203,7 +278,7 @@
     <address><a href="mailto:rich@annexia.org">rich@annexia.org</a></address>
 <!-- Created: Fri Sep  8 10:43:32 BST 2000 -->
 <!-- hhmts start -->
-Last modified: Wed Sep 13 19:11:49 BST 2000
+Last modified: Thu Nov  2 18:51:59 GMT 2000
 <!-- hhmts end -->
   </body>
 </html>

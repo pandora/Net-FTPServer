@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.37 2000/09/13 18:17:57 rich Exp $
+# $Id: FTPServer.pm,v 1.59 2000/11/03 13:37:21 rich Exp $
 
 =pod
 
@@ -66,13 +66,13 @@ your satisfaction, and then copy it to C</etc/ftpd.conf>.
 
 Two start-up scripts are supplied with the ftp server,
 to run it in two common configurations: either as a full
-FTP server or as an anonymous-only FTP server. The
-scripts are C<ftpd> and C<anonftpd>. You may need to
+FTP server or as an anonymous-only read-only FTP server. The
+scripts are C<ftpd> and C<ro-ftpd>. You may need to
 edit these scripts if Perl is not stored in the standard
 place on your system (the default path is C</usr/bin/perl>).
 
 You should copy the appropriate script, either C<ftpd> or
-C<anonftpd> to a suitable place (for example: C</usr/sbin/in.ftpd>).
+C<ro-ftpd> to a suitable place (for example: C</usr/sbin/in.ftpd>).
 
   cp ftpd /usr/sbin/in.ftpd
   chown root.root /usr/sbin/in.ftpd
@@ -138,6 +138,320 @@ C<Net::FTPServer> in the distribution. This contains
 all possible configurable options, information about
 them and defaults. You should consult the comments in
 this file for authoritative information.
+
+=head2 LOADING CUSTOMIZED SITE COMMANDS
+
+It is very simple to write custom SITE commands. These
+commands are available to users when they type "SITE XYZ"
+in a command line FTP client or when they define a custom
+SITE command in their graphical FTP client.
+
+SITE commands are unregulated by RFCs. You may define any commands and
+give them any names and any function you wish. However, over time
+various standard SITE commands have been recognized and implemented
+in many FTP servers. C<Net::FTPServer> also implements these. They
+are:
+
+  SITE VERSION      Display the server software version.
+  SITE EXEC         Execute a shell command on the server (in
+                    C<Net::FTPServer> this is disabled by default!)
+  SITE ALIAS        Display chdir aliases.
+  SITE CDPATH       Display chdir paths.
+  SITE CHECKMETHOD  Implement checksums.
+  SITE CHECKSUM
+  SITE IDLE         Get or set the idle timeout.
+
+The following commands are found in C<wu-ftpd>, but not currently
+implemented by C<Net::FTPServer>: SITE CHMOD, SITE GPASS, SITE GROUP,
+SITE GROUPS, SITE INDEX, SITE MINFO, SITE NEWER, SITE UMASK.
+
+So when you are choosing a name for a SITE command, it is probably
+best not to choose one of the above names, unless you are specifically
+implementing or overriding that command.
+
+Custom SITE commands have to be written in Perl. However, there
+is very little you need to understand in order to write these
+commands -- you will only need a basic knowledge of Perl scripting.
+
+As our first example, we will implement a C<SITE README> command.
+This command just prints out some standard information.
+
+Firstly create a file called C</usr/local/lib/site_readme.pl> (you
+may choose a different path if you want). The file should contain:
+
+  sub {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    $self->reply (200,
+                  "This is the README file for mysite.example.com.",
+                  "Mirrors are contained in /pub/mirrors directory.",
+                  "       :       :       :       :       :",
+                  "End of the README file.");
+  }
+
+Edit C</etc/ftpd.conf> and add the following command:
+
+site command: readme /usr/local/lib/site_readme.pl
+
+and restart the FTP server (check your system log [/var/log/messages]
+for any syntax errors or other problems). Here is an example of a
+user running the SITE README command:
+
+  ftp> quote help site
+  214-The following commands are recognized:
+  214-    ALIAS   CHECKMETHOD     EXEC    README
+  214-    CDPATH  CHECKSUM        IDLE    VERSION
+  214 You can also use HELP to list general commands.
+  ftp> site readme
+  200-This is the README file for mysite.example.com.
+  200-Mirrors are contained in /pub/mirrors directory.
+  200-       :       :       :       :       :
+  200 End of the README file.
+
+Our second example demonstrates how to use parameters
+(the C<$rest> argument). This is the C<SITE ECHO> command.
+
+  sub {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    # Split the parameters up.
+    my @params = split /\s+/, $rest;
+
+    # Quote each parameter.
+    my $reply = join ", ", map { "'$_'" } @params;
+
+    $self->reply (200, "You said: $reply");
+  }
+
+Here is the C<SITE ECHO> command in use:
+
+  ftp> quote help site
+  214-The following commands are recognized:
+  214-    ALIAS   CHECKMETHOD     ECHO    IDLE
+  214-    CDPATH  CHECKSUM        EXEC    VERSION
+  214 You can also use HELP to list general commands.
+  ftp> site echo hello how are you?
+  200 You said: 'hello', 'how', 'are', 'you?'
+
+Our third example is more complex and shows how to interact
+with the virtual filesystem (VFS). The C<SITE SHOW> command
+will be used to list text files directly (the user normally
+has to download the file and view it locally). Hence
+C<SITE SHOW readme.txt> should print the contents of the
+C<readme.txt> file in the local directory (if it exists).
+
+All file accesses B<must> be done through the VFS, not
+by directly accessing the disk. If you follow this convention
+then your commands will be secure and will work correctly
+with different back-end personalities (in particular when
+``files'' are really blobs in a relational database).
+
+  sub {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    # Get the file handle.
+    my ($dirh, $fileh, $filename) = $self->_get ($rest);
+
+    # File doesn't exist or not accessible. Return an error.
+    unless ($fileh)
+      {
+	$self->reply (550, "File or directory not found.");
+	return;
+      }
+
+    # Check it's a simple file.
+    my ($mode) = $fileh->status;
+
+    unless ($mode eq "f")
+      {
+	$self->reply (550,
+		      "SITE SHOW command is only supported on plain files.");
+	return;
+      }
+
+    # Try to open the file.
+    my $file = $fileh->open ("r");
+
+    unless ($file)
+      {
+	$self->reply (550, "File or directory not found.");
+	return;
+      }
+
+    # Copy data into memory.
+    my @lines = ();
+
+    while ($_ = $file->getline)
+      {
+	# Remove any native line endings.
+	s/[\n\r]+$//;
+
+	push @lines, $_;
+      }
+
+    # Close the file handle.
+    $file->close;
+
+    # Send the file back to the user.
+    $self->reply (200, "File $filename:", @lines, "End of file.");
+  }
+
+This code is not quite complete. A better implementation would
+also check the "retrieve rule" (so that people couldnE<39>t
+use C<SITE SHOW> in order to get around access control limitations
+which the server administrator has put in place). It would also
+check the file more closely to make sure it was a text file and
+would refuse to list very large files.
+
+Here is an example (abbreviated) of a user using the
+C<SITE SHOW> command:
+
+  ftp> site show README
+  200-File README:
+  200-$Id: FTPServer.pm,v 1.59 2000/11/03 13:37:21 rich Exp $
+  200-
+  200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
+  [...]
+  200-To contact the author, please email: Richard Jones <rich@annexia.org>
+  200 End of file.
+
+=head2 STANDARD PERSONALITIES
+
+Currently C<Net::FTPServer> is supplied with three standard
+personalities. These are:
+
+  Full    The complete read/write anonymous/authenticated FTP
+          server which serves files from a standard Unix filesystem.
+
+  RO      A small read-only anonymous-only FTP server similar
+          in functionality to Dan Bernstein's publicfile
+          program.
+
+  DBeg1   An example FTP server which serves files to a PostgreSQL
+          database. This supports files and hierarchical
+          directories, multiple users (but not file permissions)
+          and file upload.
+
+The standard B<Full> personality will not be explained here.
+
+The B<RO> personality is the Full personality with all code
+related to writing files, creating directories, deleting, etc.
+removed. The RO personality also only permits anonymous
+logins and does not contain any code to do ordinary
+authentication. It is therefore safe to use the RO
+personality where you are only interested in serving
+files to anonymous users and do not want to worry about
+crackers discovering a way to trick the FTP server into
+writing over a file.
+
+The B<DBeg1> personality is a complete read/write
+FTP server which stores files as BLOBs (Binary Large
+OBjects) in a PostgreSQL relational database. The
+personality supports file download and upload and
+contains code to authenticate users against a C<users>
+table in the database (database ``users'' are thus
+completely unrelated to real Unix users). The
+B<DBeg1> is intended only as an example. It does
+not support advanced features such as file
+permissions and quotas. As part of the schoolmaster.net
+project Bibliotech Ltd. have developed an even more
+advanced database personality which supports users,
+groups, access control lists, quotas, recursive
+moves and copies and many other features. However this
+database personality is not available as source.
+
+To use the DBeg1 personality you must first run a
+PostgreSQL server (version 6.4 or above) and ensure
+that you have access to it from your local user account.
+Use the C<initdb>, C<createdb> and C<createuser>
+commands to create the appropriate user account and
+database (please consult the PostgreSQL administrators
+manual for further information about this -- I do
+not answer questions about basic PostgreSQL knowledge).
+
+Here is my correctly set up PostgreSQL server, accessed
+from my local user account ``rich'':
+
+  cruiser:~$ psql
+  Welcome to the POSTGRESQL interactive sql monitor:
+    Please read the file COPYRIGHT for copyright terms of POSTGRESQL
+
+     type \? for help on slash commands
+     type \q to quit
+     type \g or terminate with semicolon to execute query
+   You are currently connected to the database: rich
+
+  rich=> \d
+  Couldn't find any tables, sequences or indices!
+
+You will also need the following Perl modules installed:
+DBI, DBD::Pg.
+
+Now you will need to create a database called ``ftp'' and
+populate it with data. This is how to do this:
+
+  createdb ftp
+  psql ftp < doc/eg1.sql
+
+Check that no ERRORs are reported by PostgreSQL.
+
+You should now be able to start the FTP server by running
+the following command (I<not> as root):
+
+  ./dbeg1-ftpd -S -p 2000 -C ftpd.conf
+
+If the FTP server doesnE<39>t start correctly, you should
+check the system log file [/var/log/messages].
+
+Connect to the FTP server as follows:
+
+  ftp localhost 2000
+
+Log in as either rich/123456 or dan/123456 and then try
+to move around, upload and download files, create and
+delete directories, etc.
+
+=head2 SUBCLASSING THE Net::FTPServer CLASSES
+
+By subclassing C<Net::FTPServer>, C<Net::FTPServer::DirHandle> and/or
+C<Net::FTPServer::FileHandle> you can create custom
+personalities for the FTP server.
+
+Typically by overriding the hooks in the C<Net::FTPServer> class
+you can change the basic behaviour of the FTP server - turning
+it into an anonymous read-only server, for example.
+
+By overriding the hooks in C<Net::FTPServer::DirHandle> and
+C<Net::FTPServer::FileHandle> you can create virtual filesystems:
+serving files into and out of a database, for example.
+
+The current manual page contains information about the
+hooks in C<Net::FTPServer> which may be overridden.
+
+See L<Net::FTPServer::DirHandle(3)> for information about
+the methods in C<Net::FTPServer::DirHandle> which may be
+overridden.
+
+See L<Net::FTPServer::FileHandle(3)> for information about
+the methods in C<Net::FTPServer::FileHandle> which may be
+overridden.
+
+The most reasonable way to create your own personality is
+to extend one of the existing personalities. Choose the
+one which most closely matches the personality that you
+want to create. For example, suppose that you want to create
+another database personality. A good place to start would
+be by copying C<lib/Net/FTPServer/DBeg1/*.pm> to a new
+directory C<lib/Net/FTPServer/MyDB/> (for example). Now
+edit these files and substitute "MyDB" for "DBeg1". Then
+examine each subroutine in these files and modify them,
+consulting the appropriate manual page if you need to.
 
 =head2 VIRTUAL HOSTS
 
@@ -278,47 +592,6 @@ client has to issue commands (ie. the C<HOST> command
 at least) before the site name is known to the server.
 However you may still have a global "access control rule".
 
-=head2 LOADING CUSTOMIZED COMMAND SETS
-
-XXX
-
-
-
-
-=head2 STANDARD PERSONALITIES
-
-XXX
-
-
-
-
-
-
-=head2 SUBCLASSING THE Net::FTPServer CLASSES
-
-By subclassing C<Net::FTPServer>, C<Net::FTPServer::DirHandle> and/or
-C<Net::FTPServer::FileHandle> you can create custom
-personalities for the FTP server.
-
-Typically by overriding the hooks in the C<Net::FTPServer> class
-you can change the basic behaviour of the FTP server - turning
-it into an anonymous read-only server, for example.
-
-By overriding the hooks in C<Net::FTPServer::DirHandle> and
-C<Net::FTPServer::FileHandle> you can create virtual filesystems:
-serving files into and out of a database, for example.
-
-The current manual page contains information about the
-hooks in C<Net::FTPServer> which may be overridden.
-
-See L<Net::FTPServer::DirHandle(3)> for information about
-the methods in C<Net::FTPServer::DirHandle> which may be
-overridden.
-
-See L<Net::FTPServer::FileHandle(3)> for information about
-the methods in C<Net::FTPServer::FileHandle> which may be
-overridden.
-
 =head1 METHODS
 
 =over 4
@@ -331,7 +604,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '0.5.1';
+$VERSION = '0.9.1';
 $RELEASE = 1;
 
 use Getopt::Long qw(GetOptions);
@@ -343,7 +616,6 @@ use IO::File;
 use BSD::Resource;
 use Carp;
 use Digest::MD5;
-use Authen::PAM;
 use POSIX qw(setsid dup2 ceil strftime);
 
 use Net::FTPServer::FileHandle;
@@ -363,7 +635,7 @@ use vars qw(@_default_commands
      "REST", "RNFR", "RNTO", "ABOR", "DELE", "RMD",
      "MKD", "PWD", "LIST", "NLST", "SITE", "SYST",
      "STAT", "HELP", "NOOP",
-     # RFC 1123 secdion 4.1.3.1 recommends implementing these.
+     # RFC 1123 section 4.1.3.1 recommends implementing these.
      "XMKD", "XRMD", "XPWD", "XCUP", "XCWD",
      # From RFC 2389.
      "FEAT", "OPTS",
@@ -455,6 +727,7 @@ sub run
 			 MLST => join ("",
 				       map { "$_*;" } @_supported_mlst_facts),
 			 LANG => "EN*",
+			 HOST => undef,
 			};
 
     # Construct a list of supported options (for OPTS command).
@@ -521,6 +794,30 @@ sub run
       print "421 Server closed the connection after idle timeout.\r\n";
       exit;
     };
+
+    # Load customized SITE commands.
+    my @custom_site_commands = $self->config ("site command");
+    foreach (@custom_site_commands)
+      {
+	my ($cmdname, $filename) = split /\s+/, $_;
+	my $sub = do $filename;
+	if ($sub)
+	  {
+	    if (ref $sub eq "CODE") {
+	      $self->{site_command_table}{uc $cmdname} = $sub;
+	    } else {
+	      syslog "err", "site command: $filename: must return an anonymous subroutine when evaluated (skipping)";
+	    }
+	  }
+	else
+	  {
+	    if ($!) {
+	      syslog "err", "site command: $filename: $! (ignored)"
+	    } else {
+	      syslog "err", "site command: $filename: $@ (ignored)"
+	    }
+	  }
+      }
 
     # Daemon mode?
     if (defined $self->{_args_daemon_mode}
@@ -680,7 +977,7 @@ sub run
     if ($r == 0)
       {
 	my $limit = 1024 * ($self->config ("limit memory") || 8192);
-	setrlimit (RLIMIT_AS, $limit, $limit)
+	setrlimit (RLIMIT_DATA, $limit, $limit)
 	  or die "setrlimit: $!";
 
 	$limit = $self->config ("limit nr processes") || 5;
@@ -1471,13 +1768,19 @@ sub _PASS_command
 
 	local (*FILE);
 
-	open FILE, "<$welcome_file"
-	  or die "welcome file: $welcome_file: $!";
-	while (<FILE>) {
-	  s/[\n\r]+$//;
-	  push @lines, $self->_percent_substitutions ($_);
-	}
-	close FILE;
+	if (open FILE, "<$welcome_file")
+	  {
+	    while (<FILE>) {
+	      s/[\n\r]+$//;
+	      push @lines, $self->_percent_substitutions ($_);
+	    }
+	    close FILE;
+	  }
+	else
+	  {
+	    @lines = ( "The server administrator has configured a welcome file,",
+		       "but the file is missing." );
+	  }
 
 	$self->reply (230, @anon_passwd_warning, @lines);
       }
@@ -2085,7 +2388,8 @@ sub _ALLO_command
     my $cmd = shift;
     my $rest = shift;
 
-    # RFC 959 Section 4.1.3: Treat this as a NOOP.
+    # RFC 959 Section 4.1.3: Treat this as a NOOP. Note that djb
+    # recommends replying with 202 here [http://cr.yp.to/ftp/stor.html].
     $self->reply (200, "OK");
   }
 
@@ -3348,7 +3652,8 @@ sub _eval_rule
     my $filename = shift;
     my $dirname = shift;
 
-    my $rule = $self->config ($rulename) || "1";
+    my $rule
+      = defined $self->config ($rulename) ? $self->config ($rulename) : "1";
 
     # Set up the variables.
     my $hostname = $self->{peerhostname};
@@ -3378,7 +3683,7 @@ sub _chdir
     # If the path starts with a "/" then it's an absolute path.
     if (substr ($path, 0, 1) eq "/")
       {
-	$dirh = new Net::FTPServer::DirHandle ($self);
+	$dirh = $self->root_directory_hook;
 	$path =~ s,^/+,,;
       }
 
@@ -3428,7 +3733,7 @@ sub _list
     # Absolute path?
     if (substr ($path, 0, 1) eq "/")
       {
-	$dirh = new Net::FTPServer::DirHandle ($self);
+	$dirh = $self->root_directory_hook;
 	$path =~ s,^/+,,;
       }
 
@@ -3523,7 +3828,7 @@ sub _get
     # Absolute path?
     if (substr ($path, 0, 1) eq "/")
       {
-	$dirh = new Net::FTPServer::DirHandle ($self);
+	$dirh = $self->root_directory_hook;
 	$path =~ s,^/+,,;
       }
 
@@ -3965,109 +4270,7 @@ Status: required.
 
 sub authentication_hook
   {
-    my $self = shift;
-    my $user = shift;
-    my $pass = shift;
-    my $user_is_anon = shift;
-
-    # Allow anonymous users. By this point we have already checked
-    # that allow anonymous is true in the configuration file.
-    return 0 if $user_is_anon;
-
-    unless ($self->config ("pam authentication"))
-      {
-	# Verify user information against the password file.
-	my $hashed_pass = (getpwnam $user)[1] or return -1;
-
-	# Check password.
-	my $salt = substr $hashed_pass, 0, 2;
-
-	return -1 if crypt ($pass, $salt) ne $hashed_pass;
-      }
-    else
-      {
-	return -1 if $self->_pam_check_password ($user, $pass) < 0;
-      }
-
-    # Successful login.
-    return 0;
-  }
-
-
-sub _pam_check_password
-  {
-    my $self = shift;
-    my $user = shift;
-    my $pass = shift;
-
-    # As noted in the source to wu-ftpd, this is something
-    # of an abuse of the PAM protocol. However the FTP protocol
-    # gives us little choice in the matter.
-
-    eval
-      {
-	my $pam_conv_func = sub
-	  {
-	    my @res;
-
-	    while (@_)
-	      {
-		my $msg_type = shift;
-		my $msg = shift;
-
-		if ($msg_type == PAM_PROMPT_ECHO_ON)
-		  {
-		    # XXX PAM_CONV_ERR not defined in Authen::PAM.
-		    return ( 19 );
-		  }
-		elsif ($msg_type == PAM_PROMPT_ECHO_OFF)
-		  {
-		    push @res, PAM_SUCCESS;
-		    push @res, $pass;
-		  }
-		elsif ($msg_type == PAM_TEXT_INFO)
-		  {
-		    push @res, PAM_SUCCESS;
-		    push @res, "";
-		  }
-		elsif ($msg_type == PAM_ERROR_MSG)
-		  {
-		    push @res, PAM_SUCCESS;
-		    push @res, "";
-		  }
-		else
-		  {
-		    # XXX PAM_CONV_ERR not defined in Authen::PAM.
-		    return ( 19 );
-		  }
-	      }
-
-	    push @res, PAM_SUCCESS;
-	    return @res;
-	  };
-
-	my $pam_appl = $self->config ("pam application name") || "ftp";
-	my $pamh = new Authen::PAM ($pam_appl, $user, $pam_conv_func);
-
-	ref ($pamh) || die "PAM error: pam_start: $pamh";
-
-	$pamh->pam_set_item (PAM_RHOST, $self->{peeraddrstring})
-	  == PAM_SUCCESS
-	    or die "PAM error: pam_set_item";
-
-	$pamh->pam_authenticate (0) == PAM_SUCCESS
-	  or die "PAM error: pam_authenticate";
-
-	$pamh->pam_acct_mgmt (0) == PAM_SUCCESS
-	  or die "PAM error: pam_acct_mgmt";
-
-	$pamh->pam_setcred (PAM_ESTABLISH_CRED) == PAM_SUCCESS
-	  or die "PAM error: pam_setcred";
-      }; # eval
-
-    return -1 if $@;
-
-    return 0;
+    die "authentication_hook is required";
   }
 
 =pod
@@ -4082,71 +4285,23 @@ Status: required.
 
 sub user_login_hook
   {
-    my $self = shift;
-    my $user = shift;
-    my $user_is_anon = shift;
-
-    my ($login, $pass, $uid, $gid, $quota, $comment, $gecos, $homedir);
-
-    # For non-anonymous users, just get the uid/gid.
-    if (! $user_is_anon)
-      {
-	($login, $pass, $uid, $gid) = getpwnam $user
-	  or die "no user $user in password file";
-
-	# Chroot for this non-anonymous user?
-	my $root_directory = $self->config ("root directory");
-
-	if (defined $root_directory)
-	  {
-	    $root_directory =~ s/%m/(getpwnam $user)[7]/ge;
-	    $root_directory =~ s/%U/$user/ge;
-	    $root_directory =~ s/%%/%/g;
-
-	    chroot $root_directory
-	      or die "cannot chroot: $root_directory: $!";
-	  }
-      }
-    # For anonymous users, chroot to ftp directory.
-    else
-      {
-	($login, $pass, $uid, $gid, $quota, $comment, $gecos, $homedir)
-	  = getpwnam "ftp"
-	    or die "no ftp user in password file";
-
-	chroot $homedir or die "cannot chroot: $homedir: $!";
-      }
-
-    # We don't allow users to relogin, so completely change to
-    # the user specified.
-
-    # Change effective UID.
-    $) = $gid;
-    $> = $uid;
-
-    # Change real UID.
-    $( = $gid;
-    $< = $uid;
-
-    # XXX Need to initgroups too?
+    die "user_login_hook is required";
   }
 
 =pod
 
 =item $dirh = $self->root_directory_hook;
 
-Hook: Return an instance of Net::FTPServer::DirHandle (or a subclass)
+Hook: Return an instance of a subclass of Net::FTPServer::DirHandle
 corresponding to the root directory.
 
-Status: optional.
+Status: required.
 
 =cut
 
 sub root_directory_hook
   {
-    my $self = shift;
-
-    return new Net::FTPServer::DirHandle ($self);
+    die "root_directory_hook is required";
   }
 
 =pod
@@ -4226,8 +4381,6 @@ commands can cause the FTP server to fail.
 User upload/download limits.
 
 Limit number of clients. Limit number of clients by host or IP address.
-
-Virtual hosts.
 
 The following commands are recognized by C<wu-ftpd>, but are not yet
 implemented by C<Net::FTPServer>:

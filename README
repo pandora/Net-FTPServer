@@ -1,4 +1,4 @@
-$Id: README,v 1.3 2000/09/12 12:50:55 rich Exp $
+$Id: README,v 1.4 2000/11/03 13:37:21 rich Exp $
 
 Net::FTPServer - A secure, extensible and configurable Perl FTP server.
 
@@ -16,6 +16,6 @@ Installation documentation is in the file ``INSTALL''.
 
 All other documentation is in the manual page. After installation, type:
 
-  man Net::FTPServer
+	man Net::FTPServer
 
 To contact the author, please email: Richard Jones <rich@annexia.org>

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Handle.pm,v 1.7 2000/09/12 12:50:55 rich Exp $
+# $Id: Handle.pm,v 1.8 2000/09/25 13:50:57 rich Exp $
 
 =pod
 
@@ -108,31 +108,7 @@ information in a Unix-like format.
 
 sub status
   {
-    my $self = shift;
-
-    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-	$atime, $mtime, $ctime, $blksize, $blocks)
-      = lstat $self->{_pathname};
-
-    # Generate printable user/group.
-    my $user = getpwuid $uid;
-    my $group = getgrgid $gid;
-
-    # Permissions from mode.
-    my $perms = $mode & 0777;
-
-    # Work out the mode using special "_" operator which causes Perl
-    # to use the result of the previous stat call.
-    $mode
-      = (-f _ ? 'f' :
-	 (-d _ ? 'd' :
-	  (-l _ ? 'l' :
-	   (-p _ ? 'p' :
-	    (-S _ ? 's' :
-	     (-b _ ? 'b' :
-	      (-c _ ? 'c' : '?')))))));
-
-    return ($mode, $perms, $nlink, $user, $group, $size, $mtime);
+    die "virtual function";
   }
 
 =pod
@@ -205,18 +181,7 @@ move a file across filesystems.
 
 sub move
   {
-    my $self = shift;
-    my $dirh = shift;
-    my $filename = shift;
-
-    die if $filename =~ /\//;	# Should never happen.
-
-    my $new_name = $dirh->{_pathname} . $filename;
-
-    rename $self->{_pathname}, $new_name or return -1;
-
-    $self->{_pathname} = $new_name;
-    return 0;
+    die "virtual function";
   }
 
 =item $rv = $handle->delete;
