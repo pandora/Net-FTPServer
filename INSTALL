@@ -1,4 +1,4 @@
-$Id: INSTALL,v 1.1 2001/02/08 14:38:22 rich Exp $
+$Id: INSTALL,v 1.2 2001/02/22 17:37:43 rich Exp $
 
 Installing Net::FTPServer
 -------------------------
@@ -7,13 +7,22 @@ Prerequisites:
 
   Authen::PAM      optional       If you want to do PAM authentication (eg.
                                   you have Red Hat Linux or Solaris).
+
   BSD::Resource    required
+
   Digest::MD5      optional       If you want the SITE CHECKSUM command
                                   to work correctly.
+
   Getopt::Long     required       This is usually supplied as part of the
                                   basic Perl package.
 
-I have tested this on perl 5.00503 & Red Hat Linux 6.0 only.
+  IO               required       This is also normally included in the
+                                  basic Perl package, but make sure you
+                                  have a pretty recent version.
+
+  IO-stringy       optional       You will need this in order to run the
+                                  test suite. You may need to apply a patch
+                                  (see FAQ for details).
 
 To compile:
 

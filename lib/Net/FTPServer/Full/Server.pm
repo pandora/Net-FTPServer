@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.1 2001/02/08 14:38:51 rich Exp $
+# $Id: Server.pm,v 1.3 2001/04/10 09:24:20 rich Exp $
 
 =pod
 
@@ -86,9 +86,7 @@ sub authentication_hook
 	my $hashed_pass = (getpwnam $user)[1] or return -1;
 
 	# Check password.
-	my $salt = substr $hashed_pass, 0, 2;
-
-	return -1 if crypt ($pass, $salt) ne $hashed_pass;
+	return -1 if crypt ($pass, $hashed_pass) ne $hashed_pass;
       }
     else
       {
@@ -223,16 +221,7 @@ sub user_login_hook
 
     # We don't allow users to relogin, so completely change to
     # the user specified.
-
-    # Change effective UID.
-    $) = $gid;
-    $> = $uid;
-
-    # Change real UID.
-    $( = $gid;
-    $< = $uid;
-
-    # XXX Need to initgroups too?
+    $self->_drop_privs ($uid, $gid, $login);
   }
 
 =pod

@@ -7,7 +7,10 @@
   </head>
 
   <body bgcolor="#ffffee">
+    <table><tr><td>
+    <a href="net-ftpserver-logo-256x256.gif"><img align="left" width=92 height=92 alt="[Net::FTPServer logo]" border=0 src="net-ftpserver-logo.gif"></a>
     <h1 align="center">Bibliotech Net::FTPServer</h1>
+	</td></tr></table>
 
     <table>
       <tr>
@@ -18,163 +21,111 @@
 	      <td>
 		<h3>News</h3>
 
-		<p><b>Sun Feb 18 23:37:14 GMT 2001</b></p>
+		<p><b>Wed Apr 11 10:32:55 BST 2001</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.9.9.tar.gz">Version 0.9.9</a>
-		  released. This fixes a nasty bug with uploading
-		  ASCII files. Also added:
-		  A fairly complete test suite [Rich].
-		  A cute "in memory" personality [Rich]. Catch errors on
-		  ASCII STOR (upload) and report to the client [Rob Brown].
-		  Eliminate the idle transfer DoS bug [Rob Brown].
-		  Never reset the ALRM catcher to inifinity (alarm 0)
-		  [Rob Brown].
-		  Pull all clients that are idle even mid-transfer
-		  [Rob Brown].
-		  Avoid timing out clients that are actively transfering
-		  [Rob Brown]. Missing files added to the MANIFEST [Rich].
+		  <a href="files/Net-FTPServer-1.0.7.tar.gz">Version 1.0.7</a>
+		  release. Keep <code>/etc/group</code> open
+		  across <code>chroot</code>.
 		</p>
 
-		<p><b>Thu Feb 15 16:21:04 GMT 2001</b></p>
+		<p><b>Tue Apr 10 10:25:16 BST 2001</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.9.8.tar.gz">Version 0.9.8</a>
-		  released. In no particular order:
-		  Port numbers opened by the FTP server in passive mode
-		  can be configured in ranges from the configuration file
-		  (this should improve things if you run a firewall in
-		  front of your server).
-		  Removed extra spaces in "Entering Passive Mode" string.
-		  Code tidying.
-		  Add "print" method to IO::Blob - you can now upload
-		  ASCII files to the database.
-		  In STOR, error messages actually reflect error
-		  conditions.
-		  Fixed calls to syswrite().
-		  Incomplete three-way TCP handshake no longer crashes
-		  the server.
-		  Add -P option on the command line to supply name of
-		  pidfile.
-		  Delete pidfile when main process dies.
-		  (Thanks to Rob Brown at about-inc.com for the bulk
-		  of these fixes).
+		  <a href="files/Net-FTPServer-1.0.6.tar.gz">Version 1.0.6</a>
+		  released. <code>initgroups</code> fixed by
+		  Rich (thanks to Matthew Gabeler-Lee for pointing
+		  out the problem). Small changes to logging usernames
+		  by Rob.
 		</p>
 
-		<p><b>Sat Feb  3 23:25:46 GMT 2001</b></p>
+		<p><b>Fri Mar 23 10:49:17 GMT 2001</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.9.6.tar.gz">Version 0.9.6</a>
-		  released. Fixed a bug with LISTing files in
-		  subdirectories (thanks to all @about-inc.com).
+		  <a href="files/Net-FTPServer-1.0.4.tar.gz">Version 1.0.4</a>
+		  released. A small patch from Rob Brown which
+		  avoids the server leaving zombie processes
+		  lying around in some situations.
 		</p>
 
-		<p><b>Fri Dec 22 13:04:42 GMT 2000</b></p>
+		<p><b>Fri Mar  2 11:04:17 GMT 2001</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.9.5.tar.gz">Version 0.9.5</a>
-		  released. I fixed a raft of portability problems
-		  on Solaris 2.7. However, there remains a problem
-		  that the Perl version I have on Solaris doesn't
-		  call <code>initgroups(3)</code> correctly when
-		  the process GID is changed, and
-		  hence doesn't drop privileges properly. This is
-		  beyond my experience to fix -- seemingly requiring
-		  deep changes to Perl itself? It also works OK on
-		  Linux and *BSD, and that's all that really concerns
-		  me anyway.
+		  <a href="files/Net-FTPServer-1.0.3.tar.gz">Version 1.0.3</a>
+		  released. This version contains patches to make the
+		  full server work correctly on OpenBSD. (Thanks
+		  to Azazel).
 		</p>
 
-		<p><b>Sat Dec  9 17:56:34 GMT 2000</b></p>
+		<p><b>Wed Feb 28 16:40:11 GMT 2001</b></p>
 
 		<p>
-		  I presented a short speech about Net::FTPServer
-		  to the Greater London Linux User Group. You
-		  can read it
-		  <a href="speech/title.html">here</a>.
+		  <a href="files/Net-FTPServer-1.0.2.tar.gz">Version 1.0.2</a>
+		  released. This contains some necessary bugfixes over
+		  the 1.0.0 and 1.0.1 releases.
+		  <a href="http://www.annexia.org/cgi-bin/autopatch.pl?dir=ftp">Patch
+		    to this version</a> if you
+		  had problems with those releases. (Thanks to Rob
+		  Brown for these fixes).
 		</p>
 
-		<p><b>Fri Dec  8 23:50:14 GMT 2000</b></p>
+		<p><b>Tue Feb 27 10:43:44 GMT 2001</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.9.4.tar.gz">Version 0.9.4</a>
-		  released. Fixed a few problems with older versions
-		  of PostgreSQL (versions &lt;= 6.3).
+		  <a href="files/Net-FTPServer-1.0.1.tar.gz">Version 1.0.1</a>
+		  released. I've done next to nothing for this release,
+		  but Rob Brown has been at it again, producing a
+		  beautiful series of bug fixes and enhancements.
+		  In no particular order:
+		  Avoid hard coded "." and ".." entries in directories.
+		  Logging is taint-clean in Perl 5.005. Don't log
+		  out-of-band data into client log.
+		  Added ident (RFC 1413) logging for increased security.
+		  Added "time zone" configuration file option so
+		  that dates and times can appear in zones other
+		  than GMT.
+		  Allow parent daemon to be restarted
+		  cleanly even if there are child daemons still
+		  left over from the previous process.
+		  Sending SIGHUP causes the parent process to cleanly
+		  restart, reload configuration files and reopen
+		  client logging file (this even works if the
+		  daemon has bound to a low-numbered port and dropped
+		  priviledges).
 		</p>
 
-		<p><b>Sat Nov 25 13:39:52 GMT 2000</b></p>
+		<p><b>Thu Feb 22 17:14:22 GMT 2001</b></p>
 
 		<p>
-		  <a href="files/Net-FTPServer-0.9.3.tar.gz">Version 0.9.3</a>
-		  released. Fixed compatibility problems with ncftp
-		  versions 2.4.3 and 3.0.2. Mostly fixed MLST/MLSD
-		  commands. Added --help option. Fixed -V option.
+		  <b><a href="files/Net-FTPServer-1.0.0.tar.gz">Version
+		      1.0.0</a> released!</b> Go and read our
+		  <a href="press1.0.txt">press release</a>.
 		</p>
 
-		<p><b>Fri Nov  3 18:14:05 GMT 2000</b></p>
-
 		<p>
-		  <a href="files/Net-FTPServer-0.9.2.tar.gz">Version 0.9.2</a>
-		  released. Bug fixes and clean ups.
+		  Fixed for this release by Rich: <tt>STOU</tt>
+		  now works. Listing
+		  files by wildcard now works in the "in memory"
+		  personality. Added
+		  <tt>STOR</tt>/<tt>STOU</tt>/<tt>APPE</tt> tests. Added
+		  <tt>LIST</tt>/<tt>NLST</tt> tests. Added
+		  <tt>SITE IDLE</tt> test. Added <tt>SITE
+		  VERSION</tt> test. Added <tt>REST</tt> test.
+		  Added <tt>RNFR/RNTO</tt>
+		  test. Added <tt>ABOR</tt> test. Added "no authentication
+		  commands" configuration option.
 		</p>
 
-		<p><b>Fri Nov  3 13:38:14 GMT 2000</b></p>
-
 		<p>
-		  <a href="files/Net-FTPServer-0.9.1.tar.gz">Version 0.9.1</a>
-		  released. Many documentation updates. Added
-		  easily customizable SITE commands.
-		</p>
-
-		<p><b>Thu Nov  2 18:39:30 GMT 2000</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-0.9.0.tar.gz">Version 0.9.0</a>
-		  released. Added a anonymous read-only FTP
-		  personality. With this personality, the
-		  FTP server contains <i>no code</i> which could
-		  be used to write, create directories, delete
-		  files, etc. The FTP server will also only
-		  accept anonymous logins, and contains no
-		  code for checking <tt>/etc/passwd</tt> or PAM.
-		  This is a candidate for a 1.0.0 release.
-		  Please download it, play with it, and send
-		  me your feedback.
-		</p>
-
-		<p><b>Thu Nov  2 18:09:12 GMT 2000</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-0.8.4.tar.gz">Version 0.8.4</a>
-		  released. Added the missing database schema.
-		</p>
-
-		<p><b>Thu Nov  2 18:01:52 GMT 2000</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-0.8.3.tar.gz">Version 0.8.3</a>
-		  released. This version has a fairly complete
-		  example database back-end for those that
-		  wanted to see that.
-		</p>
-
-		<p><b>Thu Nov  2 14:10:21 GMT 2000</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-0.8.0.tar.gz">Version 0.8.0</a>
-		  released. This is a highly experimental release
-		  which adds a partially implemented database
-		  back-end. This is just for people interested
-		  in database back-ends to the FTP server.
-		</p>
-
-		<p><b>Wed Oct 25 10:31:45 BST 2000</b></p>
-
-		<p>
-		  <a href="files/Net-FTPServer-0.7.2.tar.gz">Version 0.7.2</a>
-		  released. This fixes a problem when 
-		  the FTP server is run from inetd
-		  (thanks again to Matthew Gabeler-Lee).
+		  Fixed for this release by Rob Brown: "Client logging"
+		  feature. Distinguish between sending TERM to the
+		  daemonized process and to the child processes.
+		  Implement <tt>ABOR</tt>-ted transfers using SIGURG.
+		  Added <tt>post_bind_hook</tt>.
+		  DoS attack avoided by reseting
+		  the alarm after read and before write. Abort if
+		  configuration file is missing. Added
+		  <tt>transfer_hook</tt>.
 		</p>
 
 		<p align="right"><a href="oldnews.html">Old news ...</a></p>
@@ -266,7 +217,7 @@
 
 		<p>
 		  Latest stable version:
-		  <a href="files/Net-FTPServer-0.9.9.tar.gz">0.9.9</a>
+		  <a href="files/Net-FTPServer-1.0.6.tar.gz">1.0.6</a>
 		</p>
 
 		<p align="right">
@@ -375,7 +326,7 @@
     <address><a href="mailto:rich@annexia.org">rich@annexia.org</a></address>
 <!-- Created: Fri Sep  8 10:43:32 BST 2000 -->
 <!-- hhmts start -->
-Last modified: Sun Feb 18 23:45:38 GMT 2001
+Last modified: Wed Apr 11 10:33:33 BST 2001
 <!-- hhmts end -->
   </body>
 </html>

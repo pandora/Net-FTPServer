@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.1 2001/02/08 14:38:53 rich Exp $
+# $Id: Server.pm,v 1.2 2001/04/10 09:24:21 rich Exp $
 
 =pod
 
@@ -115,16 +115,7 @@ sub user_login_hook
 
     # We don't allow users to relogin, so completely change to
     # the user specified.
-
-    # Change effective UID.
-    $) = $gid;
-    $> = $uid;
-
-    # Change real UID.
-    $( = $gid;
-    $< = $uid;
-
-    # XXX Need to initgroups too?
+    $self->_drop_privs ($uid, $gid, $login);
   }
 
 =pod

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.1 2001/02/08 14:38:49 rich Exp $
+# $Id: Server.pm,v 1.2 2001/03/02 11:15:03 rich Exp $
 
 =pod
 
@@ -121,9 +121,7 @@ sub authentication_hook
 
     # Check password.
     my $hashed_pass = $row->[0];
-    my $salt = substr $hashed_pass, 0, 2;
-
-    return -1 unless crypt ($pass, $salt) eq $hashed_pass;
+    return -1 unless crypt ($pass, $hashed_pass) eq $hashed_pass;
 
     # Successful login.
     return 0;

@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.33 2001/02/22 15:46:12 rich Exp $
+# $Id: FTPServer.pm,v 1.58 2001/04/10 09:33:30 rich Exp $
 
 =pod
 
@@ -197,10 +197,10 @@ may choose a different path if you want). The file should contain:
     my $rest = shift;
 
     $self->reply (200,
-                  "This is the README file for mysite.example.com.",
-                  "Mirrors are contained in /pub/mirrors directory.",
-                  "       :       :       :       :       :",
-                  "End of the README file.");
+		  "This is the README file for mysite.example.com.",
+		  "Mirrors are contained in /pub/mirrors directory.",
+		  "       :       :       :       :       :",
+		  "End of the README file.");
   }
 
 Edit C</etc/ftpd.conf> and add the following command:
@@ -326,7 +326,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.33 2001/02/22 15:46:12 rich Exp $
+  200-$Id: FTPServer.pm,v 1.58 2001/04/10 09:33:30 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -616,8 +616,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.0';
-$RELEASE = 3;
+$VERSION = '1.0.7';
+$RELEASE = 1;
 
 use Config;
 use Getopt::Long qw(GetOptions);
@@ -629,8 +629,8 @@ use IO::File;
 use BSD::Resource;
 use Carp;
 use Digest::MD5;
-use POSIX qw(setsid dup2 ceil strftime);
-use Fcntl qw(F_SETOWN);
+use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
+use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
@@ -697,7 +697,7 @@ from the global C<@ARGV> array.
 sub run
   {
     my $class = shift;
-    my $args = shift || \@ARGV;
+    my $args = shift || [@ARGV];
 
     # Clean up the environment to allow tainting to work.
     $ENV{PATH} = "/usr/bin:/bin";
@@ -822,6 +822,15 @@ sub run
 
 	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
 	$log_file =~ s/\$(\w+)/$self->{$1}/g;
+	if ($log_file =~ m%^([/\w\-\.]+)$%)
+	  {
+	    $self->{_log_file} = $log_file = $1;
+	  }
+	else
+	  {
+	    die "Refusing to create weird looking client log file: $log_file";
+	  }
+
 	my $io = new IO::File $log_file, "a";
 	if (defined $io)
 	  {
@@ -877,6 +886,34 @@ sub run
 	  syslog "info", "shutting down daemon";
 	  $self->_log_line ("[DAEMON Shutdown]");
 	  exit;
+	};
+
+	local $SIG{HUP} = sub {
+	  # Added 26 Feb 2001 by Rob Brown <rbrown@about-inc.com>
+
+	  # Code to allow priviledged port bind()ing capability by
+	  # unpriviledged user by reusing an already-bind()ed file
+	  # descriptor.
+
+	  # Duplicate bind()ed socket _ctrl_sock so the old one can be closed.
+	  my $fake = new IO::Socket::INET;
+	  $fake->fdopen (dup ($self->{_ctrl_sock}->fileno), "w");
+
+	  # Make sure its FD_CLOEXEC bit is off so the exec'ed process
+	  # can still use it.
+	  $fake->fcntl (F_SETFD, my $flags = "");
+
+	  # ENV will also be available to the exec'ed process.
+	  $ENV{BIND} = $fake->fileno;
+
+	  # Shutdown old _ctrl_sock to kick out of the blocking accept() call.
+	  $self->{_ctrl_sock}->close;
+
+	  # Preserve the new file descriptor until exec is called.
+	  $self->{_hup} = $fake;
+
+	  syslog "info", "received SIGHUP, Reloading configuration";
+	  $self->_log_line ("[DAEMON Reloading configuration]");
 	};
 
 	# Run as a daemon.
@@ -936,12 +973,12 @@ sub run
 		if ($sitename)
 		  {
 		    syslog "info",
-		           "IP-based virtual hosts: set site to $sitename";
+			   "IP-based virtual hosts: set site to $sitename";
 		  }
 		else
 		  {
 		    syslog "info",
-		           "IP-based virtual hosts: no site found";
+			   "IP-based virtual hosts: no site found";
 		  }
 	      }
 	  }
@@ -955,7 +992,7 @@ sub run
 	$peername = getpeername STDIN;
 	($peerport, $peeraddr) = unpack_sockaddr_in ($peername);
 	$peeraddrstring = inet_ntoa ($peeraddr);
-        $self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport]");
+	$self->_log_line ("[CONNECTION FROM $peeraddrstring:$peerport]");
       }
 
     # Resolve the address.
@@ -1110,6 +1147,89 @@ sub run
 	die "unknown greeting type: ${greeting_type}";
       }
 
+    # Implement Identification Protocol as explained in RFC 1413.
+    # Some firewalls block the auth port which could make this
+    # operation slow.  Wait until after the greeting is sent to the
+    # client to signify that it is okay for commands to be sent while
+    # the ident authentication is taking place.  This timeout is used
+    # for both the connection and the "patience" desired for the
+    # remote ident response.  Having a timeout also helps to avoid a
+    # possible DoS on the FTP server.  There is no way to specify an
+    # infinite timeout.  The directive "ident timeout: 0" will disable
+    # this feature.
+
+    my $ident_timeout = $self->config ("ident timeout");
+    if (defined $ident_timeout && $ident_timeout > 0 &&
+	defined $self->{peerport} && defined $self->{sockport} &&
+	defined $self->{peeraddrstring})
+      {
+	my $got_bored = 0;
+	my $ident;
+	eval
+	  {
+	    local $SIG{__WARN__} = 'DEFAULT';
+	    local $SIG{__DIE__}  = 'DEFAULT';
+	    local $SIG{ALRM} = sub { $got_bored = 1; die "timed out"; };
+	    alarm $ident_timeout;
+	    $ident = new IO::Socket::INET
+	      (PeerAddr  => $self->{peeraddrstring},
+	       PeerPort  => "auth");
+	  };
+
+	if ($got_bored)
+	  {
+	    # Took too long to connect to remote auth port
+	    # (probably because of a client-side firewall).
+	    $self->_log_line ("[Ident auth failed: connection timed out]");
+	    syslog "warning", "ident auth failed for $self->{peeraddrstring}: connection timed out";
+	  }
+	else
+	  {
+	    if (defined $ident)
+	      {
+		my $response;
+		eval
+		  {
+		    local $SIG{__WARN__} = 'DEFAULT';
+		    local $SIG{__DIE__}  = 'DEFAULT';
+		    local $SIG{ALRM}
+		      = sub { $got_bored = 1; die "timed out"; };
+		    alarm $ident_timeout;
+		    $ident->print ("$self->{peerport} , ",
+				   "$self->{sockport}\r\n");
+		    $response = $ident->getline;
+		  };
+		$ident->close;
+
+		# Took too long to respond?
+		if ($got_bored)
+		  {
+		    $self->_log_line ("[Ident auth failed: response timed out]");
+		    syslog "warning", "ident auth failed for $self->{peeraddrstring}: response timed out";
+		  }
+		else
+		  {
+		    if ($response =~ /:\s*USERID\s*:\s*OTHER\s*:\s*(\S+)/)
+		      {
+			$self->{auth} = $1;
+			$self->_log_line ("[IDENT AUTH VERIFIED: $self->{auth}\@$self->{peeraddrstring}]");
+			syslog "info", "ident auth: $self->{auth}\@$self->{peeraddrstring}";
+		      }
+		    else
+		      {
+			$self->_log_line ("[Ident auth failed: invalid response]");
+			syslog "warning", "ident auth failed for $self->{peeraddrstring}: invalid response";
+		      }
+		  }
+	      }
+	    else
+	      {
+		$self->_log_line ("[Ident auth failed: Connection refused]");
+		syslog "warning", "ident auth failed for $self->{peeraddrstring}: Connection refused";
+	      }
+	  }
+      }
+
     # Get command filter, if set.
     my $cmd_filter = $self->config ("command filter");
 
@@ -1143,7 +1263,19 @@ sub run
 	# We should translate <CR><NUL> to <CR> and treat ONLY <CR><LF>
 	# as a line ending character.
 	last unless defined ($_ = <STDIN>);
-        $self->_log_line ($_);
+
+	# Immediately terminate if the parent died.
+	# In standalone mode, this means the main daemon has terminated.
+	# In inet mode, this means that inetd itself has terminated.
+	# In either case, the system administrator may have new
+	# configuration settings that need to be loaded so any current
+	# FTP clients should not be able to run any new commands on the
+	# old configuration for security reasons.
+	if (getppid == 1)
+	  {
+	    $self->reply (421, "Manual Server Shutdown. Reconnect required.");
+	    exit;
+	  }
 
 	# Restart alarm clock timer.
 	alarm $self->{_idle_timeout};
@@ -1152,6 +1284,9 @@ sub run
 	# an ABOR command), the client will send several telnet control
 	# characters before the actual command. Drop those bytes now.
 	s/^\377.// while m/^\377./;
+
+	# Log client command if logging is enabled.
+	$self->_log_line ($_);
 
 	# Go slow?
 	sleep $self->config ("command wait")
@@ -1180,7 +1315,7 @@ sub run
 	  {
 	    syslog "err",
 	    "badly formed command received: %s", _escape($_);
-            $self->_log_line ("[Badly formed command]", _escape($_));
+	    $self->_log_line ("[Badly formed command]", _escape($_));
 	    exit 0;
 	  }
 
@@ -1226,7 +1361,7 @@ sub _log_line
     my $message = join ("",@_);
     my $io = $self->{client_log};
     my $time = scalar localtime;
-    my $authenticated = $self->{authenticated} ? "*" : "-";
+    my $authenticated = $self->{authenticated} ? $self->{user} : "-";
     $message =~ s/\n*$/\n/;
     $io->print ("[$time][$$:$authenticated]$message");
   }
@@ -1244,17 +1379,23 @@ sub _save_pid
        : $self->config ("pidfile"));
     if (defined $self->{_pidfile})
       {
-        my $pidfile = $self->{_pidfile};
-        if ($pidfile =~ m%^([/\w\-\.]+)$%)
-          {
-            open (PID, ">$1")
-              or die "cannot write $pidfile: $!";
-            print PID "$$\n";
-            close PID;
-            eval "END {unlink('$1') if \$\$ == $$;}";
-          } else {
-            die "Refusing to create weird looking pidfile: $pidfile";
-          }
+	my $pidfile = $self->{_pidfile};
+
+	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
+	$pidfile =~ s/\$(\w+)/$self->{$1}/g;
+	if ($pidfile =~ m%^([/\w\-\.]+)$%)
+	  {
+	    $self->{_pidfile} = $1;
+	    open (PID, ">$self->{_pidfile}")
+	      or die "cannot write $pidfile: $!";
+	    print PID "$$\n";
+	    close PID;
+	    eval "END {unlink('$1') if \$\$ == $$;}";
+	  }
+	else
+	  {
+	    die "Refusing to create weird looking pidfile: $pidfile";
+	  }
       }
   }
 
@@ -1278,7 +1419,7 @@ sub _get_configuration
 		"p=i" => \$self->{_args_ctrl_port},
 		"s" => \$self->{_args_daemon_mode},
 		"S" => \$self->{_args_run_in_background},
-                "P=s" => \$self->{_args_pidfile},
+		"P=s" => \$self->{_args_pidfile},
 		"V" => \$show_version,
 		"C=s" => \$self->{_config_file},
 		"test" => \$self->{_test_mode});
@@ -1377,10 +1518,21 @@ sub _be_daemon
       push @args, LocalAddr => $self->config ("local address")
     }
 
-    # Open a socket on the control port.
-    $self->{_ctrl_sock} =
-      IO::Socket::INET->new (@args)
-	or die "socket: $!";
+    # If existing socket already bind()ed, use that one
+    if (exists $ENV{BIND} && $ENV{BIND} =~ /^(\d+)$/)
+      {
+	my $bind_fd = $1;
+	$self->{_ctrl_sock} = new IO::Socket::INET;
+	$self->{_ctrl_sock}->fdopen ($bind_fd, "w")
+	  or die "socket: $!";
+      }
+    else
+      {
+	# Open a socket on the control port.
+	$self->{_ctrl_sock} =
+	  new IO::Socket::INET (@args)
+	    or die "socket: $!";
+      }
 
     # Set TCP keepalive?
     if (defined $self->config ("tcp keepalive"))
@@ -1392,16 +1544,21 @@ sub _be_daemon
     $self->post_bind_hook;
 
     # Automatically clean up zombie children.
-    if ($Config{osname} !~ /solaris/) {
-      $SIG{CHLD} = sub { wait };
-    } else {
-      $SIG{CHLD} = "IGNORE";
-    }
+    $SIG{CHLD} = sub {
+      my $kid;
+      while (($kid = waitpid (-1,WNOHANG)) > 0) {}
+    };
 
     # Accept new connections and fork off new process to handle it.
     for (;;)
       {
 	$self->pre_accept_hook;
+
+	if (!$self->{_ctrl_sock}->opened &&
+	    !exists $self->{_hup})
+	  {
+	    die "control socket crashed somehow";
+	  }
 
 	# ACCEPT may be undefined if, for example, the TCP-level 3-way
 	# handshake is not completed. If this happens, all we really want
@@ -1412,7 +1569,15 @@ sub _be_daemon
 
 	until (defined $sock)
 	  {
-	    $sock = $self->{_ctrl_sock}->accept;
+	    $sock = $self->{_ctrl_sock}->accept
+	      if $self->{_ctrl_sock}->opened;
+
+	    # Received SIGHUP? Restart self.
+	    if (exists $self->{_hup})
+	      {
+		exec ($0,@ARGV);
+	      }
+
 	    warn "accept: $!" unless defined $sock;
 	  }
 
@@ -1423,6 +1588,10 @@ sub _be_daemon
 	    if ($pid == 0)		# Child process.
 	      {
 		syslog "info", "starting child process" if $self->{debug};
+
+		# Shutdown accepting file descriptor to allow successful
+		# port bind() in case of a future daemon restart
+		$self->{_ctrl_sock}->close;
 
 		# Duplicate the socket so it looks like we were called
 		# from inetd.
@@ -1746,11 +1915,15 @@ sub _USER_command
 	unless ($self->config ("allow anonymous"))
 	  {
 	    $self->reply (421, "Anonymous logins not permitted.");
-            $self->_log_line ("[No anonymous allowed]");
+	    $self->_log_line ("[No anonymous allowed]");
 	    exit 0;
 	  }
 
 	$self->{user_is_anonymous} = 1;
+      }
+    else
+      {
+	delete $self->{user_is_anonymous};
       }
 
     unless ($self->{user_is_anonymous})
@@ -1858,7 +2031,7 @@ sub _PASS_command
 
 	    # See RFC 2577 section 5.
 	    $self->reply (421, "Too many login attempts. Goodbye.");
-            $self->_log_line ("[Max logins reached]");
+	    $self->_log_line ("[Max logins reached]");
 	    exit 0;
 	  }
 
@@ -1870,7 +2043,7 @@ sub _PASS_command
     unless ($self->_eval_rule ("user access control rule"))
       {
 	$self->reply (421, "User denied by server configuration. Goodbye.");
-        $self->_log_line ("[Client denied]");
+	$self->_log_line ("[Client denied]");
 	exit;
       }
 
@@ -1960,6 +2133,11 @@ sub _PASS_command
 	die "unknown welcome type: $welcome_type";
       }
 
+    # Set the timezone for responses.
+    $ENV{TZ} = defined $self->config ("time zone")
+      ? $self->config ("time zone")
+      : "GMT";
+
     # Open /etc/protocols etc., in case we chroot.
     setprotoent 1;
     sethostent 1;
@@ -1967,6 +2145,9 @@ sub _PASS_command
     setservent 1;
     setpwent;
     setgrent;
+
+    # Open /etc/group (see _drop_privs function below).
+    $self->{_group_handle} = new IO::File "/etc/group";
 
     # Perform chroot, etc., as required.
     $self->user_login_hook ($self->{user},
@@ -2040,6 +2221,49 @@ sub _anon_passwd_validate_trivial
     my $pass = shift;
 
     return $pass =~ /\@/;
+  }
+
+# Assuming we are running as root, drop privileges and change
+# to user called $username who has uid $uid and gid $gid. This
+# is complicated a lot by the fact that Perl doesn't call
+# initgroups implicitly, and doesn't have an interface to the
+# initgroups functions, so we have to grok /etc/group by hand
+# which is ugly, and probably won't work with NIS, etc. Yuk.
+sub _drop_privs
+  {
+    my $self = shift;
+    my $uid = shift;
+    my $gid = shift;
+    my $username = shift;
+
+    # Get the list of extra groups to pass to setgroups(2).
+    my @groups = ();
+
+    if (defined $self->{_group_handle})
+      {
+	while ($_ = $self->{_group_handle}->getline)
+	  {
+	    s/[\n\r]+$//;
+
+	    my ($name, $pw, $gid, $members) = split /:/, $_;
+	    my @members = split /,/, $members;
+
+	    foreach (@members)
+	      {
+		push @groups, $gid if $_ eq $username;
+	      }
+	  }
+
+	$self->{_group_handle}->seek (0, 0);
+      }
+
+    # Set the effective GID/UID.
+    $) = join (" ", $gid, $gid, @groups);
+    $> = $uid;
+
+    # Set the real GID/UID.
+    $( = $gid;
+    $< = $uid;
   }
 
 sub _ACCT_command
@@ -2917,16 +3141,9 @@ sub _LIST_command
 	  {
 	    # Synthesize "total" field.
 	    $sock->print ("total 1\r\n");
-
-	    # Synthesize . and .. entries. I suppose that there will
-	    # be some FTP clients out there which will get confused if
-	    # they don't see these.
-	    my @status = ('d', 0777, 2, "root", "root", 4096, 1);
-	    $self->_list_file ($sock, undef, ".", \@status);
-	    $self->_list_file ($sock, undef, "..", \@status);
 	  }
 
-	my $r = $dirh->list_status ($wildcard);
+	my $r = $dirh->_list_status ($wildcard);
 
 	foreach (@$r)
 	  {
@@ -3661,7 +3878,7 @@ sub _MDTM_command
 
     # Format the modification time. See draft-ietf-ftpext-mlst-11.txt
     # sections 2.3 and 3.1.
-    my $fmt_time = strftime "%Y%m%d%H%M%S", gmtime ($time);
+    my $fmt_time = strftime "%Y%m%d%H%M%S", localtime ($time);
 
     $self->reply (213, $fmt_time);
   }
@@ -3906,7 +4123,7 @@ sub _mlst_format
 	  }
 	elsif ($_ eq "MODIFY")
 	  {
-	    my $fmt_time = strftime "%Y%m%d%H%M%S", gmtime ($mtime);
+	    my $fmt_time = strftime "%Y%m%d%H%M%S", localtime ($mtime);
 	    push @facts, "$_=$fmt_time";
 	  }
 	elsif ($_ eq "PERM")
@@ -3915,29 +4132,29 @@ sub _mlst_format
 	      {
 		push @facts,
 		"$_=" . ($handle->can_read ? "r" : "") .
-		        ($handle->can_write ? "w" : "") .
-		        ($handle->can_append ? "a" : "") .
+			($handle->can_write ? "w" : "") .
+			($handle->can_append ? "a" : "") .
 			($handle->can_rename ? "f" : "") .
-		        ($handle->can_delete ? "d" : "");
+			($handle->can_delete ? "d" : "");
 	      }
 	    elsif ($mode eq "d")
 	      {
 		push @facts,
 		"$_=" . ($handle->can_write ? "c" : "") .
-		        ($handle->can_delete ? "d" : "") .
-		        ($handle->can_enter ? "e" : "") .
-		        ($handle->can_list ? "l" : "") .
+			($handle->can_delete ? "d" : "") .
+			($handle->can_enter ? "e" : "") .
+			($handle->can_list ? "l" : "") .
 			($handle->can_rename ? "f" : "") .
-		        ($handle->can_mkdir ? "m" : "");
+			($handle->can_mkdir ? "m" : "");
 	      }
 	    else
 	      {
 		# Pipes, block specials, etc.
 		push @facts,
 		"$_=" . ($handle->can_read ? "r" : "") .
-		        ($handle->can_write ? "w" : "") .
-		        ($handle->can_rename ? "f" : "") .
-		        ($handle->can_delete ? "d" : "");
+			($handle->can_write ? "w" : "") .
+			($handle->can_rename ? "f" : "") .
+			($handle->can_delete ? "d" : "");
 	      }
 	  }
 	elsif ($_ eq "UNIX.MODE")
@@ -4294,7 +4511,7 @@ sub _list_file
 	$fmt = "%b %e %H:%M";
       }
 
-    my $fmt_time = strftime $fmt, gmtime ($mtime);
+    my $fmt_time = strftime $fmt, localtime ($mtime);
 
     # Display the file.
     $sock->printf ("%s%s%s%s%s%s%s%s%s%s%4d %-8s %-8s %8d %s %s\r\n",
@@ -4830,9 +5047,6 @@ Equivalent of ProFTPDE<39>s ``DisplayReadme'' function.
 The ability to hide dot files (probably best to build this
 into the VFS layer). This should apply across all commands.
 See ProFTPDE<39>s ``IgnoreHidden'' function.
-
-Do ident (RFC913) authentication at login. Have a way to
-turn this on and off.
 
 Access to LDAP authentication database (can currently be done using a
 PAM module). In general, we should support pluggable authentication.

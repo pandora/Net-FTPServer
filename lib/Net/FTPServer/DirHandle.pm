@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.1 2001/02/08 14:38:47 rich Exp $
+# $Id: DirHandle.pm,v 1.2 2001/02/23 00:22:30 rbrown Exp $
 
 =pod
 
@@ -150,6 +150,33 @@ The list is sorted into alphabetical order automatically.
 sub list
   {
     confess "virtual function";
+  }
+
+
+=pod
+
+=item $ref = $dirh->_list_status ([$wildcard]);
+
+Just a dumb wrapper function.  Returns the same this as
+list_status(), but also includes the special directories
+"." and ".." if no wildcard is specified.
+
+=cut
+
+sub _list_status
+  {
+    my $self = shift;
+    my $wildcard = shift;
+    my @array = ();
+    unless ($wildcard)
+      {
+	# I suppose that there will be some FTP clients out there which
+	# will get confused if they don't see . and .. entries.
+	push (@array, [ ".",  $self ]);
+	push (@array, [ "..", $self->parent ]);
+      }
+    push (@array, @{ $self->list_status ($wildcard) });
+    return \@array;
   }
 
 =pod
