@@ -1,4 +1,4 @@
-$Id: README,v 1.41 2001/08/27 09:17:48 rich Exp $
+$Id: README,v 1.45 2001/09/17 15:39:44 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -43,6 +43,15 @@ Missing features:
   release).
 
 ---------------------------------------------
+** EXPERIMENTAL RELEASE! **
+---------------------------------------------
+
+The 1.100, 1.101, etc. versions of Net::FTPServer are experimental
+releases. This means that they may not work properly for you. If you
+just want a stable FTP server which works, use the stable versions
+(1.031, 1.032, 1.033, etc.)
+
+---------------------------------------------
 INSTALLATION, CONFIGURATION AND DOCUMENTATION
 ---------------------------------------------
 
@@ -71,6 +80,18 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.100: EXPERIMENTAL RELEASE. Various small bugs fixed by
+Rob. Fixed a bug in Full/RO personalities which would cause
+incorrectly formatted directory handles to be created in some
+circumstances. Doubled memory and process limits so that default
+install will work correctly on Alpha. Added archive mode: try
+downloading "file.gz" (gzipped version of "file" will be created on
+the fly); try downloading "dir.list.gz" (compressed directory listing
+will be created on the fly); lots of other novel and interesting uses
+of this feature: see section ARCHIVE MODE in manual. Documentation
+updates. More tests. Added "visit" member for recursing over
+directories.
 
 Version 1.031: Added missed tests to MANIFEST file. Added 'make
 check-manifest' rule to try to eliminate missing files in the
