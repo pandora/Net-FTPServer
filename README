@@ -1,4 +1,4 @@
-$Id: README,v 1.57 2002/02/23 15:05:23 rich Exp $
+$Id: README,v 1.59 2002/05/11 16:00:34 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,11 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.105: EXPERIMENTAL RELEASE. The "Full" backend now has
+an additional option ("password file") to allow authentication
+against a flat password file instead of the normal PAM database.
+Documentation updates for Debian.
 
 Version 1.104: EXPERIMENTAL RELEASE. Security fix: NLST honours the
 "list rule" access control rule (thanks to Jamie Hill

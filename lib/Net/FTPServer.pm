@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.178 2002/02/23 15:05:24 rich Exp $
+# $Id: FTPServer.pm,v 1.180 2002/05/11 16:00:35 rich Exp $
 
 =pod
 
@@ -66,10 +66,11 @@ After doing C<make install>, the standard C<ftpd.conf> file should
 have been installed in C</etc/ftpd.conf>. You will probably need to
 edit this file to suit your local configuration.
 
-Also after doing C<make install>, several start-up scripts will
-have been installed in C</usr/sbin/*ftpd.pl>. Each start-up script
-starts the server in a different configuration: either as a full
-FTP server, or as an anonymous-only read-only FTP server, etc.
+Also after doing C<make install>, several start-up scripts will have
+been installed in C</usr/sbin/*ftpd.pl>. (On Debian in
+C</usr/local/bin>). Each start-up script starts the server in a
+different configuration: either as a full FTP server, or as an
+anonymous-only read-only FTP server, etc.
 
 The commonly used scripts are:
 
@@ -665,6 +666,68 @@ that wu-ftpd chooses. FreeBSD users will want to use C<ftpd> here.
 Default: ftp
 
 Example: C<pam application name: ftpd>
+
+=item password file
+
+Only in the C<Full> personality, this allows you to specify a password
+file which is used for authentication. If you enable this option, then
+normal PAM or C</etc/passwd> is bypassed and this password file is
+used instead.
+
+Each line in the password file has the following format:
+
+ username:crypted_password:unix_user[:root_directory]
+
+Comments and blank lines are ignored.
+
+For example, a line with:
+
+ guest:ab01FAX.bQRSU:rich:/home/rich/guest-uploads
+
+would allow someone to log in as C<guest> with password
+C<123456>. After logging in, the FTP server will assume the identity
+of the real Unix user C<rich>, and will chroot itself into the
+C</home/rich/guest-uploads> directory.
+
+(Note that because ordinary PAM/C<passwd> is bypassed, it would no
+longer be possible for a user to log in directly with the username
+C<rich>).
+
+Crypted passwords can be generated using the following command:
+
+ perl -e 'print crypt ("123456", "ab"), "\n"'
+
+Replace C<123456> with the actual password, and replace C<ab> with two
+random letters from the set C<[a-zA-Z0-9./]>. (The two random letters
+are the so-called I<salt> and are used to make dictionary attacks
+against the password file more difficult - see L<crypt(3)>).
+
+The userE<39>s home directory comes from the real Unix password file
+(or nsswitch-configured source) for the real Unix user.  You cannot
+use password files to override this, and so if you are using the
+optional C<root_directory> parameter, it would make sense to add
+C<home directory: /> into your configuration file.
+
+Anonymous logins are B<not> affected by the C<password file>
+option. Use the C<allow anonymous> flag to control whether anonymous
+logins are permitted in the C<Full> back-end.
+
+Password files are not the height of security, but they are included
+because they can sometimes be useful. In particular if the password
+file can be read by untrusted users then it is likely that those same
+users can run the I<crack> program and eventually find out your
+passwords. Some small additional security is offered by having the
+password file readable only by root (mode 0600). In future we may
+offer MD5 or salted SHA-1 hashed passwords to make this harder.
+
+A curious artifact of the implementation allows you to list the same
+user with multiple different passwords. Any of the passwords is then
+valid for logins (and you could even have the user map to different
+real Unix users in different chrooted directories!)
+
+Default: (none)
+
+Example: C<password file: /etc/ftpd.passwd>
 
 =item passive port range
 
@@ -1638,7 +1701,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.178 2002/02/23 15:05:24 rich Exp $
+  200-$Id: FTPServer.pm,v 1.180 2002/05/11 16:00:35 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2005,7 +2068,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.104';
+$VERSION = '1.105';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.

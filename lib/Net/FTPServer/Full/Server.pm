@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.9 2001/10/24 14:40:06 rich Exp $
+# $Id: Server.pm,v 1.10 2002/05/11 16:00:39 rich Exp $
 
 =pod
 
@@ -50,7 +50,7 @@ use strict;
 BEGIN { eval "use Authen::PAM;"; }
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.9 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.10 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer;
 use Net::FTPServer::Full::FileHandle;
@@ -63,7 +63,8 @@ use vars qw(@ISA);
 
 =item $rv = $self->authentication_hook ($user, $pass, $user_is_anon)
 
-Perform login against C</etc/passwd> or the PAM database.
+Perform login against C</etc/passwd>, the PAM database or the
+C<password file>.
 
 =cut
 
@@ -78,7 +79,11 @@ sub authentication_hook
     # that allow anonymous is true in the configuration file.
     return 0 if $user_is_anon;
 
-    unless ($self->config ("pam authentication"))
+    if ($self->config ("password file"))
+      {
+	return -1 if $self->_password_file ($user, $pass) < 0;
+      }
+    elsif (! $self->config ("pam authentication"))
       {
 	# Verify user information against the password file.
 	my $hashed_pass = (getpwnam $user)[1] or return -1;
@@ -95,6 +100,55 @@ sub authentication_hook
     return 0;
   }
 
+sub _password_file
+  {
+    my $self = shift;
+    my $user = shift;
+    my $pass = shift;
+
+    my $pw_file = $self->config ("password file");
+
+    # Open the password file and parse it.
+    open PW_FILE, "<$pw_file"
+      or die "Administrator configured a password file, but ",
+	     "the file is missing or cannot be opened. The error was:\n",
+	     "$pw_file: $!";
+    while (<PW_FILE>)
+      {
+	s/[\n\r]+$//;
+	next if /^\s*\#/ || /^\s*$/;
+
+	# Untaint lines from the password file, since we trust it
+	# unconditionally. Admin's fault if they make this file
+	# world writable or something :-)
+	/(.*)/; $_ = $1;
+
+	my ($pw_username, $pw_crypted_pw, $unix_user, $root_directory)
+	  = split /:/, $_;
+
+	warn "checking $pw_username, pass $pw_crypted_pw ...";
+
+	if ($user eq $pw_username &&
+	    $pw_crypted_pw eq crypt ($pass, $pw_crypted_pw))
+	  {
+	    close PW_FILE;
+
+	    warn "logged in ok!";
+
+	    # Successful login. Remember the real Unix user, which
+	    # we will substitute below.
+	    $self->{full_unix_user} = $unix_user;
+	    $self->{full_root_directory} = $root_directory
+	      if defined $root_directory;
+
+	    return 0;
+	  }
+      }
+    close PW_FILE;
+
+    # Failed.
+    return -1;
+  }
 
 sub _pam_check_password
   {
@@ -205,11 +259,18 @@ sub user_login_hook
     # For non-anonymous users, just get the uid/gid.
     if (! $user_is_anon)
       {
+	# Saved real Unix user (from the "password file" option)?
+	$user = $self->{full_unix_user} if exists $self->{full_unix_user};
+
 	($login, $pass, $uid, $gid) = getpwnam $user
 	  or die "no user $user in password file";
 
-	# Chroot for this non-anonymous user?
-	my $root_directory = $self->config ("root directory");
+	# Chroot for this non-anonymous user? If using the "password file"
+	# option then we might have saved a root directory above.
+	my $root_directory =
+	  exists $self->{full_root_directory} ?
+	         $self->{full_root_directory} :
+		 $self->config ("root directory");
 
 	if (defined $root_directory)
 	  {
