@@ -1,4 +1,4 @@
-$Id: README,v 1.4 2003/09/28 12:12:22 rwmj Exp $
+$Id: README,v 1.7 2003/12/29 11:27:55 uid68240 Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -82,6 +82,18 @@ list.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.119: EXPERIMENTAL RELEASE.  Added FTP proxy backend (highly
+experimental - please test). Patch from John Jetmore to open
+/etc/localtime in chroot environment.  All of the following from Yair
+Lenga: 'rotate log files' configuration.  open_data_connection fix for
+non-reusable sockets on SunOS.  'die' replaced with 'confess' in a few
+places to aid debugging.  Allow 'ftp data port' to be given as a
+service name, as well as a number.  'authentication_hook' may return
+-2 to avoid sleep.  Don't drop priviledges if 'ftp data port' is bound
+to a socket < 1024.  Send back GMT in MDTM command.  Various extra
+directives such as '%Y' can be included in log file names
+(undocumented?).
 
 Version 1.118: EXPERIMENTAL RELEASE. Moved to Savannah.nongnu.org.
 

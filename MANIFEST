@@ -15,6 +15,7 @@ TODO
 bin/dbeg1-ftpd.pl
 bin/ftpd.pl
 bin/inmem-ftpd.pl
+bin/proxy-ftpd.pl
 bin/ro-ftpd.pl
 debian/README.Debian
 debian/changelog
@@ -46,6 +47,9 @@ lib/Net/FTPServer/Full/FileHandle.pm
 lib/Net/FTPServer/InMem/Server.pm
 lib/Net/FTPServer/InMem/DirHandle.pm
 lib/Net/FTPServer/InMem/FileHandle.pm
+lib/Net/FTPServer/Proxy/Server.pm
+lib/Net/FTPServer/Proxy/DirHandle.pm
+lib/Net/FTPServer/Proxy/FileHandle.pm
 lib/Net/FTPServer/RO/Server.pm
 lib/Net/FTPServer/RO/DirHandle.pm
 lib/Net/FTPServer/RO/FileHandle.pm

@@ -18,17 +18,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.2 2003/10/17 14:40:37 rwmj Exp $
+# $Id: FileHandle.pm,v 1.1 2003/10/17 14:40:37 rwmj Exp $
 
 =pod
 
 =head1 NAME
 
-Net::FTPServer::InMem::FileHandle - Store files in local memory
+Net::FTPServer::Proxy::FileHandle - Proxy FTP server
 
 =head1 SYNOPSIS
 
-  use Net::FTPServer::InMem::FileHandle;
+  use Net::FTPServer::Proxy::FileHandle;
 
 =head1 DESCRIPTION
 
@@ -38,18 +38,19 @@ Net::FTPServer::InMem::FileHandle - Store files in local memory
 
 =cut
 
-package Net::FTPServer::InMem::FileHandle;
+package Net::FTPServer::Proxy::FileHandle;
 
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.2 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Carp qw(croak confess);
 use IO::Scalar;
+use File::Temp qw/tempfile/;
 
 use Net::FTPServer::FileHandle;
-use Net::FTPServer::InMem::DirHandle;
+use Net::FTPServer::Proxy::DirHandle;
 
 use vars qw(@ISA);
 @ISA = qw(Net::FTPServer::FileHandle);
@@ -61,17 +62,9 @@ sub new
     my $class = shift;
     my $ftps = shift;
     my $pathname = shift;
-    my $dir_id = shift;
-    my $file_id = shift;
-    my $content = shift;
 
     # Create object.
     my $self = Net::FTPServer::FileHandle->new ($ftps, $pathname);
-
-    $self->{fs_dir_id} = $dir_id;
-    $self->{fs_file_id} = $file_id;
-    $self->{fs_content} = $content;
-
     return bless $self, $class;
   }
 
@@ -81,9 +74,8 @@ sub dir
   {
     my $self = shift;
 
-    return Net::FTPServer::InMem::DirHandle->new ($self->{ftps},
-						  $self->dirname,
-						  $self->{fs_dir_id});
+    return Net::FTPServer::Proxy::DirHandle->new ($self->{ftps},
+						  $self->dirname);
   }
 
 # Open the file handle.
@@ -95,15 +87,22 @@ sub open
 
     if ($mode eq "r")		# Open file for reading.
       {
-	return new IO::Scalar ($self->{fs_content});
+	# Get the file into a temporary location.
+	my ($io, $tmpfile) = tempfile ("ftpsXXXXXX"); # XXX Not secure at all.
+	my $r = $self->{ftps}{proxy_conn}->get ($self->pathname,
+						$tmpfile);
+	unlink $tmpfile;
+	return undef unless $r;
+	# Read the file.
+	return $io;
       }
     elsif ($mode eq "w")	# Create/overwrite the file.
       {
-	return new IO::Scalar ($self->{fs_content});
+	die "XXX";
       }
     elsif ($mode eq "a")	# Append to the file.
       {
-	return new IO::Scalar ($self->{fs_content});
+	die "XXX";
       }
     else
       {
@@ -114,11 +113,9 @@ sub open
 sub status
   {
     my $self = shift;
-    my $username = substr $self->{ftps}{user}, 0, 8;
 
-    my $size = length $ { $self->{fs_content} };
-
-    return ( 'f', 0644, 1, $username, "users", $size, 0 );
+    # XXX FIXME
+    return ( 'f', 0644, 1, "-", "-", 0, 0 );
   }
 
 # Move a file to elsewhere.
@@ -129,12 +126,8 @@ sub move
     my $dirh = shift;
     my $filename = shift;
 
-    $Net::FTPServer::InMem::DirHandle::files{$self->{fs_file_id}}{dir_id}
-      = $dirh->{fs_dir_id};
-    $Net::FTPServer::InMem::DirHandle::files{$self->{fs_file_id}}{name}
-      = $filename;
-
-    return 0;
+    $self->{ftps}{proxy_conn}->rename ($self->pathname,
+				       $dirh->pathname . $filename) ? 0 : -1;
   }
 
 # Delete a file.
@@ -143,9 +136,7 @@ sub delete
   {
     my $self = shift;
 
-    delete $Net::FTPServer::InMem::DirHandle::files{$self->{fs_file_id}};
-
-    return 0;
+    $self->{ftps}{proxy_conn}->delete ($self->pathname) ? 0 : -1;
   }
 
 1 # So that the require or use succeeds.
@@ -160,8 +151,7 @@ Richard Jones (rich@annexia.org).
 
 =head1 COPYRIGHT
 
-Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
-London, SW6 3EG, UK
+Copyright (C) 2003 Richard Jones E<lt>rich@annexia.orgE<gt>
 
 =head1 SEE ALSO
 

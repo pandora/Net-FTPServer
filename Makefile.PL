@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.1 2003/09/28 11:50:44 rwmj Exp $
+# $Id: Makefile.PL,v 1.2 2003/10/17 14:40:37 rwmj Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -87,6 +87,11 @@ my %modules
        message =>
        "File::Sync is missing. The SITE SYNC command will not work.\n"
      },
+     'File::Temp' =>
+     { status => "option",
+       message =>
+       "File::Temp is missing. This is required for the proxy server.\n"
+     },
      'Getopt::Long' => { status => "required" },
      'IO::Dir' => { status => "required", package => "IO" },
      'IO::File' => { status => "required", package => "IO" },
@@ -97,6 +102,11 @@ my %modules
      'IO::Select' => { status => "required", package => "IO" },
      'IO::Socket' => { status => "required", package => "IO" },
      'IPC::Open2' => { status => "required" },
+     'Net::FTP' =>
+     { status => "optional",
+       message =>
+       "Net::FTP is missing. This is required for the proxy server.\n"
+     },
      'POSIX' => { status => "required" },
      'Socket' => { status => "required" },
      'Sys::Hostname' => { status => "required" },
@@ -190,6 +200,7 @@ my @args = (
 	    EXE_FILES => [ 'bin/dbeg1-ftpd.pl',
 			   'bin/ftpd.pl',
 			   'bin/inmem-ftpd.pl',
+			   'bin/proxy-ftpd.pl',
 			   'bin/ro-ftpd.pl' ],
 	    INSTALLSCRIPT => $ExtUtils::MakeMaker::VERSION < 5.45 ?
 	    '$(PREFIX)/sbin' : # No SITEPREFIX before Perl 5.6.0

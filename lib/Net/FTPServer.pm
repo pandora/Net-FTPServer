@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.2 2003/09/28 11:55:07 rwmj Exp $
+# $Id: FTPServer.pm,v 1.5 2003/12/29 11:15:57 uid68240 Exp $
 
 =pod
 
@@ -269,6 +269,20 @@ Having an error log is I<highly recommended>.
 Default: (not set, warnings and errors go to syslog)
 
 Example: C<error log: /var/log/ftpd.errors>
+
+= item rotate log files
+
+If set, and if the log file names contain a '%' directive, then the
+server will check if a new log file is needed whenever the system
+accepts a new connection.  This implements a log rotation feature for
+long-running servers.
+
+If not set, then any '%' directive will be evaluated only when the log
+files gets created.
+
+Default: (not set, log file name evaluated only once)
+
+Example: C<rotate log files: 1>
 
 =item maintainer email
 
@@ -1755,7 +1769,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.2 2003/09/28 11:55:07 rwmj Exp $
+  200-$Id: FTPServer.pm,v 1.5 2003/12/29 11:15:57 uid68240 Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2122,7 +2136,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.118';
+$VERSION = '1.119';
 $RELEASE = 1;
 
 # Non-optional modules.
@@ -2138,8 +2152,10 @@ use IO::Scalar;
 use IO::Seekable;
 use IPC::Open2;
 use Carp;
+use Carp::Heavy ;
 use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
 use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
+use Errno qw(EADDRINUSE) ;
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
@@ -2330,12 +2346,12 @@ sub run
 
     if (defined $self->config ("error log"))
       {
-	my $log_file = $self->config ("error log");
+	$self->_open_error_log ;
 
-	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
-	$log_file =~ s/\$(\w+)/$self->{$1}/g;
-	$self->{_error_file} = $log_file;
-	open STDERR, ">>$log_file" or die "cannot append: $log_file: $!";
+	$SIG{__DIE__} = sub {
+	  $self->log ("err", $_[0]);
+	  confess $_[0];
+	};
       }
     else
       {
@@ -2347,7 +2363,7 @@ sub run
 	};
 	$SIG{__DIE__} = sub {
 	  $self->log ("err", $_[0]);
-	  die $_[0];
+	  confess $_[0];
 	};
       }
 
@@ -2379,45 +2395,21 @@ sub run
     };
 
     # Setup Client Logging.
-    if (defined $self->config ("client logging"))
-      {
-	my $log_file = $self->config ("client logging");
-
-	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
-	$log_file =~ s/\$(\w+)/$self->{$1}/g;
-	$self->{_log_file} = $log_file;
-
-	my $io = new IO::File $log_file, "a";
-	if (defined $io)
-	  {
-	    $io->autoflush (1);
-	    $self->{client_log} = $io;
-	  }
-	else
-	  {
-	    die "cannot append: $log_file: $!";
-	  }
-      }
+    $self->_open_client_log ;
 
     # Setup xfer Logging.
-    if (defined $self->config ("xfer logging"))
+    $self->_open_xfer_log ;
+
+    # Convert FTP Data port service name to port number, if necessary.
+    if (my $ftpdata = $self->config ("ftp data port"))
       {
-	my $log_file = $self->config ("xfer logging");
-
-	# Swap $VARIABLE with corresponding attribute (i.e., $hostname)
-	$log_file =~ s/\$(\w+)/$self->{$1}/g;
-	$self->{_xfer_file} = $log_file;
-
-	my $io = new IO::File $log_file, "a";
-	if (defined $io)
-	  {
-	    $io->autoflush (1);
-	    $self->{_xferlog} = $io;
-	  }
-	else
-	  {
-	    die "cannot append: $log_file: $!";
-	  }
+	my $ftp_data_port =
+	  $ftpdata =~ /^\d+$/
+	    ? $ftpdata
+	    : scalar (getservbyname ($ftpdata, 'tcp'));
+	die "Unable to locate '$ftpdata' service"
+	  unless defined $ftp_data_port;
+	$self->{ftp_data_port} = $ftp_data_port;
       }
 
     # Load customized SITE commands.
@@ -3117,6 +3109,98 @@ sub _handle_sigterm
     exit;
   }
 
+# Added 20 Oct 2003 by Yair Lenga
+# Rotating Log files - allow stftime '%' in the file name
+
+sub _rotate_log
+  {
+    my $self = shift ;
+    my $prop = "rotate log files";
+
+    if (defined ($self->config($prop)) ? $self->config($prop) : 0)
+      {
+	$self->_open_error_log ;
+	$self->_open_client_log ;
+	$self->_open_xfer_log ;
+      }
+  }
+
+sub _open_error_log
+  {
+    my $self = shift ;
+
+    # Check for new error log (remember open log file in in _error_file)
+
+    if ( my $log_file = $self->config("error log") ) {
+      $log_file = $self->resolve_log_file_name($log_file) ;
+      if ( $log_file ne $self->{_error_file} ) {
+	$self->log( 'notice', "Switch error log to $log_file") ;
+	open STDERR, ">>$log_file"
+	  or die "cannot append: $log_file: $!";
+	$self->{_error_file} = $log_file;
+      }
+    }
+    return 1
+  }
+
+sub _open_xfer_log
+  {
+    my $self = shift ;
+    if ( my $log_file = $self->config("xfer logging") ) {
+      $log_file = $self->resolve_log_file_name($log_file) ;
+      if ( $log_file ne $self->{_xfer_file} ) {
+	if ( my $io = $self->{_xferlog} ) {
+	  $io->close ;
+	  delete $self->{_xferlog} ;
+	} ;
+	$self->{_xfer_file} = $log_file;
+	my $io = new IO::File $log_file, "a";
+	if (defined $io) {
+	  $io->autoflush (1);
+	  $self->{_xferlog} = $io;
+	  $self->log( 'notice', "Using xfer log: $log_file") ;
+	} else {
+	  die "cannot append: $log_file: $!";
+	}
+      }
+    }
+    return 1
+  }
+
+sub _open_client_log
+  {
+    my $self = shift ;
+    if ( my $log_file = $self->config("client logging") ) {
+      $log_file = $self->resolve_log_file_name($log_file) ;
+      if ( $log_file ne $self->{_client_file} ) {
+	if ( my $io = $self->{_client_log} ) {
+	  $io->close ;
+	  delete $self->{_client_log} ;
+	} ;
+	$self->{_client_file} = $log_file;
+	my $io = new IO::File $log_file, "a";
+	if (defined $io) {
+	  $io->autoflush (1);
+	  $self->{_client_log} = $io;
+	  $self->log( 'notice', "Starting client log: $log_file") ;
+	} else {
+	  die "cannot append: $log_file: $!";
+	}
+      }
+    }
+  }
+
+sub resolve_log_file_name
+  {
+    my ($self, $log_file) = @_ ;
+
+    $log_file =~ s/\$(\w+)/$self->{$1}/g
+      if $log_file =~ /\$/ ;
+    $log_file = strftime($log_file, localtime())
+      if $log_file =~ /\%/ ;
+    return $log_file;
+  }
+
 # Added 21 Feb 2001 by Rob Brown
 # Client command logging
 sub _log_line
@@ -3417,6 +3501,9 @@ sub _be_daemon
     # Accept new connections and fork off new process to handle it.
     for (;;)
       {
+	# Possibly rotate the log files to a new name.
+	$self->_rotate_log ;
+
 	$self->pre_accept_hook;
 	if (!$self->{_ctrl_sock}->opened)
 	  {
@@ -3452,6 +3539,9 @@ sub _be_daemon
               warn "accept: $!" unless defined $sock;
             }
           }
+
+	# Possibly rotate the log files to a new name.
+	$self->_rotate_log ;
 
 	if ($self->concurrent_connections >= $self->{_max_clients})
 	  {
@@ -4416,11 +4506,14 @@ sub _PASS_command
       }
 
     # OK, now the real authentication check.
-    if ($self->authentication_hook ($self->{user}, $rest,
-				    $self->{user_is_anonymous}) < 0)
+    my $fail_code =
+      $self->authentication_hook ($self->{user}, $rest,
+				  $self->{user_is_anonymous}) ;
+
+    if ( $fail_code < 0 )
       {
 	# See RFC 2577 section 5.
-	sleep 5;
+	sleep 5 unless $fail_code == -2 ;
 
 	# Login failed.
 	$self->{loginattempts}++;
@@ -4543,6 +4636,10 @@ sub _PASS_command
     $ENV{TZ} = defined $self->config ("time zone")
       ? $self->config ("time zone")
       : "GMT";
+
+    # Patch fom John Jetmore <jetmore@cinergycom.com>.  The following
+    # line is necessary to open /etc/localtime in the chroot environment.
+    scalar (localtime (time));
 
     # Open /etc/protocols etc., in case we chroot. And yes, doing the
     # setprotoent _twice_ is necessary to work around a bug in Perl or
@@ -4716,15 +4813,15 @@ sub _drop_privs
     $) = join (" ", $gid, $gid, @groups);
     $> = $uid;
 
-    my $ftpdata = $self->config("ftp data port");
-    if (!$ftpdata or
-        ($ftpdata =~ /^\d+$/ ? $ftpdata :
-         scalar getservbyname($ftpdata,"tcp"))
-        >= 1024)
+    # set the real GID/UID if we are going to use non-priv port
+    # Otherwise, keep root access so we can bind to the port
+    if (my $ftpdata = $self->{ftp_data_port})
       {
-        # Set the real GID/UID.
-        $( = $gid;
-        $< = $uid;
+	if ( $ftpdata >= 1024 )
+	  {
+	    $( = $gid;
+	    $< = $uid;
+	  }
       }
   }
 
@@ -6627,7 +6724,7 @@ sub _MDTM_command
 
     # Format the modification time. See draft-ietf-ftpext-mlst-11.txt
     # sections 2.3 and 3.1.
-    my $fmt_time = strftime "%Y%m%d%H%M%S", localtime ($time);
+    my $fmt_time = strftime "%Y%m%d%H%M%S", gmtime ($time);
 
     $self->reply (213, $fmt_time);
   }
@@ -7283,26 +7380,41 @@ sub open_data_connection
     if (! $self->{_passive})
       {
         # Active mode - connect back to the client.
-        if (my $source_port = $self->config("ftp data port"))
+	my $source_addr = $self->{sockaddrstring};
+	my $target_addr = $self->{_hostaddrstring};
+        my $target_port = $self->{_hostport};
+        if (my $source_port = $self->{ftp_data_port})
           {
             # Temporarily jump back to super user just
             # long enough to bind the privileged port.
             local $) = 0;
             local $> = 0;
-            "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
-            $sock = new IO::Socket::INET
-              LocalPort => $source_port,
-              PeerAddr => $self->{_hostaddrstring},
-              PeerPort => $self->{_hostport},
-              Proto => "tcp",
-              Type => SOCK_STREAM,
-              Reuse => 1,
-              or warn "Failed to bind() local port [$source_port] ($!)\n";
+	    for (1..5) {
+	      "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
+              $sock = new IO::Socket::INET
+	        LocalAddr => $source_addr,
+                LocalPort => $source_port,
+                PeerAddr => $target_addr,
+                PeerPort => $target_port,
+                Proto => "tcp",
+                Type => SOCK_STREAM,
+                Reuse => 1,
+                or warn "PID $$ Failed to bind() ($!)";
+              last if $sock;
+	      print STDERR "    PID $$ Socket [${source_addr}:${source_port}] to [${target_addr}:${target_port}]\n"
+		if $_ == 1;
+	      last unless $!{EADDRINUSE};
+	      print STDERR
+		"    PID $$ Retrying data connection (Attempt $_)\n" ;
+	      sleep 1;
+	    }
+	    return undef unless $sock ;
           }
-        unless ($sock)
-          {
+	else
+	  {
             "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
             $sock = new IO::Socket::INET
+	      LocalAddr => $self->{sockaddrstring},
               PeerAddr => $self->{_hostaddrstring},
               PeerPort => $self->{_hostport},
               Proto => "tcp",
@@ -8144,7 +8256,7 @@ and many others.
 Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
 London, SW6 3EG, UK.
 
-Copyright (C) 2000-2001 Richard Jones (rich@annexia.org) and
+Copyright (C) 2000-2003 Richard Jones (rich@annexia.org) and
 other contributors.
 
 This program is free software; you can redistribute it and/or modify
