@@ -7,7 +7,7 @@
 
 Summary: Net::FTPServer - an extensible, secure FTP server
 Name: perl-Net-FTPServer
-Version: 1.119
+Version: 1.120
 Release: 1
 Copyright: GPL
 Group: Applications/Internet

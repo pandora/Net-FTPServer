@@ -1,4 +1,4 @@
-$Id: README,v 1.7 2003/12/29 11:27:55 uid68240 Exp $
+$Id: README,v 1.10 2004/02/08 19:21:55 rwmj Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -82,6 +82,10 @@ list.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.120: EXPERIMENTAL RELEASE.  Added PREREQ_PM to Makefile.PL
+so CPAN works (thanks to barbie at missbarbell dot co dot uk).  Fixed
+a few warnings (thanks David Wheeler, david at kineticode dot com).
 
 Version 1.119: EXPERIMENTAL RELEASE.  Added FTP proxy backend (highly
 experimental - please test). Patch from John Jetmore to open

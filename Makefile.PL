@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.2 2003/10/17 14:40:37 rwmj Exp $
+# $Id: Makefile.PL,v 1.4 2004/02/08 19:21:55 rwmj Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -227,6 +227,29 @@ my @args = (
 	     dist => 'Net-FTPServer.spec',
 	     #'Net-FTPServer.spec' => "lib/Net/FTPServer.pm",
 	     #Makefile => "lib/Net/FTPServer.pm",
+	    },
+
+	    # Despite what I say about PREREQ_PM above, we need it to
+	    # satisfy various automatic tools, eg. CPAN.
+	    PREREQ_PM   =>
+	    {
+	     'BSD::Resource'    => '0',
+	     'Carp'		=> '0',
+	     'DynaLoader'	=> '0',
+	     'Fcntl'		=> '0',
+	     'Getopt::Long'	=> '0',
+	     'IO::Dir'		=> '0',
+	     'IO::File'		=> '0',
+	     'IO::Handle'	=> '0',
+	     'IO::Scalar'	=> 1.126,
+	     'IO::Seekable'	=> '0',
+	     'IO::Select'	=> '0',
+	     'IO::Socket'	=> '0',
+	     'IPC::Open2'	=> '0',
+	     'POSIX'		=> '0',
+	     'Socket'		=> '0',
+	     'Sys::Hostname'	=> '0',
+	     'Sys::Syslog'	=> '0',
 	    },
 	   );
 

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.5 2003/12/29 11:15:57 uid68240 Exp $
+# $Id: FTPServer.pm,v 1.8 2004/02/08 19:21:55 rwmj Exp $
 
 =pod
 
@@ -270,7 +270,7 @@ Default: (not set, warnings and errors go to syslog)
 
 Example: C<error log: /var/log/ftpd.errors>
 
-= item rotate log files
+=item rotate log files
 
 If set, and if the log file names contain a '%' directive, then the
 server will check if a new log file is needed whenever the system
@@ -1769,7 +1769,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.5 2003/12/29 11:15:57 uid68240 Exp $
+  200-$Id: FTPServer.pm,v 1.8 2004/02/08 19:21:55 rwmj Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2136,7 +2136,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.119';
+$VERSION = '1.120';
 $RELEASE = 1;
 
 # Non-optional modules.
@@ -3133,7 +3133,8 @@ sub _open_error_log
 
     if ( my $log_file = $self->config("error log") ) {
       $log_file = $self->resolve_log_file_name($log_file) ;
-      if ( $log_file ne $self->{_error_file} ) {
+      if (!defined $self->{_error_file} ||
+	  $log_file ne $self->{_error_file}) {
 	$self->log( 'notice', "Switch error log to $log_file") ;
 	open STDERR, ">>$log_file"
 	  or die "cannot append: $log_file: $!";
