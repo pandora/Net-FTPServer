@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.8 2001/09/17 07:37:51 rich Exp $
+# $Id: DirHandle.pm,v 1.7 2001/07/25 19:18:23 rich Exp $
 
 =pod
 
@@ -160,7 +160,7 @@ sub list
       {
 	my $handle
 	  = -d "$self->{_pathname}$file"
-	    ? Net::FTPServer::Full::DirHandle->new ($self->{ftps}, $self->{_pathname} . $file . "/")
+	    ? Net::FTPServer::Full::DirHandle->new ($self->{ftps}, $self->{_pathname} . $file)
 	    : Net::FTPServer::Full::FileHandle->new ($self->{ftps}, $self->{_pathname} . $file);
 
 	push @array, [ $file, $handle ];
