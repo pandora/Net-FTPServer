@@ -2,8 +2,8 @@
 
 Summary: Net::FTPServer - an extensible, secure FTP server
 Name: Net-FTPServer
-Version: 1.0.18
-Release: 1
+Version: 1.0.19
+Release: 3
 Copyright: GPL
 Group: Applications/Internet
 Source: %{name}-%{version}.tar.gz

@@ -1,4 +1,4 @@
-$Id: README,v 1.6 2001/06/29 16:24:39 rich Exp $
+$Id: README,v 1.7 2001/07/03 16:55:09 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -62,6 +62,13 @@ Send feedback, bug reports, questions and patches to the author,
 Richard Jones <rich@annexia.org>.
 
 CHANGE LOG
+
+Version 1.0.19: Ignore SIGCHLD in child processes (thanks to
+Duane Powell for finding this bug). The code which parses the
+configuration file is more strict about illegal constructs such
+as using <Include> inside a <Host> section. You can use <Perl>
+sections to insert verbatim Perl code into your configuration
+files, just like with Apache.
 
 Version 1.0.18: Linux Magazine has an article about Net::FTPServer
 here: http://www.linux-mag.com/2001-05/toc.html . Avoid storing

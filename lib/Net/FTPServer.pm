@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.89 2001/07/02 18:00:30 rich Exp $
+# $Id: FTPServer.pm,v 1.94 2001/07/03 16:55:10 rich Exp $
 
 =pod
 
@@ -1117,6 +1117,56 @@ Default: USER PASS QUIT LANG HOST FEAT HELP
 
 Example: C<no authentication commands: USER PASS QUIT>
 
+=item E<lt>PerlE<gt> ... E<lt>/PerlE<gt>
+
+Use the E<lt>PerlE<gt> directive to write Perl code directly
+into your configuration file. Here is a simple example:
+
+ <Perl>
+ use Sys::Hostname;
+ $config{'maintainer email'} = "root\@" . hostname ();
+ $config{port} = 8000 + 21;
+ $config{debug} = $ENV{FTP_DEBUG} ? 1 : 0;
+ </Perl>
+
+As shown in the example, to set a configuration option called
+C<foo>, you simply assign to the variable C<$config{foo}>.
+
+All normal Perl functionality is available to you, including
+use of C<require> if you need to run an external Perl script.
+
+The E<lt>PerlE<gt> and E<lt>/PerlE<gt> directives must each appear
+on a single line on their own.
+
+You cannot use a E<lt>PerlE<gt> section within a E<lt>HostE<gt>
+section. Instead, you must simulate it by assigning to the
+C<%host_config> variable like this:
+
+ <Perl>
+ $host_config{'localhost.localdomain'}{ip} = "127.0.0.1";
+ $host_config{'localhost.localdomain'}{'allow site exec command'}= 1;
+ </Perl>
+
+The above is equivalent to the following ordinary E<lt>HostE<gt>
+section:
+
+ <Host localhost.localdomain>
+   ip: 127.0.0.1
+   allow site exec command: 1
+ </Host>
+
+You may also assign to the C<$self> variable in order to set
+variables directly in the C<Net::FTPServer> object itself. This
+is pretty hairy, and hence not recommended, but you dig your own
+hole if you want. Here is a contrived example:
+
+ <Perl>
+ $self->{version_string} = "my FTP server/1.0";
+ </Perl>
+
+A cleaner, but more complex way to do this would be to use
+a personality.
+
 =back 4
 
 =head2 LOADING CUSTOMIZED SITE COMMANDS
@@ -1294,7 +1344,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.89 2001/07/02 18:00:30 rich Exp $
+  200-$Id: FTPServer.pm,v 1.94 2001/07/03 16:55:10 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1584,8 +1634,8 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.0.18';
-$RELEASE = 1;
+$VERSION = '1.0.19';
+$RELEASE = 3;
 
 use Config;
 use Getopt::Long qw(GetOptions);
@@ -1765,7 +1815,7 @@ sub run
     };
 
     # Set up signal handlers to give us a clean exit.
-    # XXX Are these inherited?
+    # Note that these are inherited if we fork.
     $SIG{PIPE} = sub {
       $self->log ("info", "client closed connection abruptly") if $self;
       exit;
@@ -2545,9 +2595,13 @@ sub _be_daemon
 	my $kid;
 	while (($kid = waitpid (-1,WNOHANG)) > 0)
 	  {
+	    next unless ref $self->{_children};
 	    # Client $kid just finished
 	    delete $self->{_children}->{$kid};
 	  }
+	# Do not crash from attempting to dereference a number
+	return unless ref $self->{_children};
+
 	# Take care of a race condition where client B finishes
 	# (causing another SIGCHLD) after client A finishes its
 	# waitpid (de-zombied), but before reaching its delete.
@@ -2610,6 +2664,10 @@ sub _be_daemon
 	      {
 		$self->log ("info", "starting child process")
 		  if $self->{debug};
+
+		# Don't handle SIGCHLD in the child process, in case the
+		# personality tries to launch subprocesses.
+		$SIG{CHLD} = "DEFAULT";
 
 		# Wipe the hash within the child process to save memory
 		$self->{_children} = $self->concurrent_connections;
@@ -2704,6 +2762,11 @@ sub _open_config_file
 	# Special treatment: <Include> files.
 	if (/^\s*<Include\s+(.*)>\s*$/i)
 	  {
+	    if ($sitename)
+	      {
+		die "$config_file:$lineno: cannot use <Include> inside a <Host> section. It will not do what you expect. See the Net::FTPServer(3) manual page for information.";
+	      }
+
 	    $self->_open_config_file ($1);
 	    next;
 	  }
@@ -2731,6 +2794,73 @@ sub _open_config_file
 	    next;
 	  }
 
+	# Special treatment: <Perl> sections.
+	if (/^\s*<Perl>\s*$/i)
+	  {
+	    if ($sitename)
+	      {
+		die "$config_file:$lineno: cannot use <Perl> inside a <Host> section. It will not do what you expect. See the Net::FTPServer(3) manual page for information on the %host_config variable.";
+	      }
+
+	    # Suck in lines verbatim until we reach the end of this section.
+	    my $perl_code = "";
+
+	    while ($_ = $config->getline)
+	      {
+		$lineno++;
+		last if /^\s*<\/Perl>\s*$/i;
+		$perl_code .= $_;
+	      }
+
+	    unless ($_)
+	      {
+		die "$config_file:$lineno: unfinished <Perl> section";
+	      }
+
+	    # Untaint this code: it comes from a trusted source, namely
+	    # the configuration file.
+	    $perl_code =~ /(.*)/s;
+	    $perl_code = $1;
+
+#	    warn "executing perl code:\n$perl_code\n";
+
+	    # Run it. It will write into local variables %config and
+	    # %host_config.
+	    my %config;
+	    my %host_config;
+
+	    eval $perl_code;
+	    if ($@)
+	      {
+		die "$config_file:$lineno: $@";
+	      }
+
+	    # Examine what it's written into %config and %host_config
+	    # and add those to the configuration.
+	    foreach (keys %config)
+	      {
+		$self->_set_config ($_, $config{$_},
+				    undef, $config_file, $lineno);
+	      }
+
+	    my $host;
+	    foreach $host (keys %host_config)
+	      {
+		foreach (keys %{$host_config{$host}})
+		  {
+		    $self->_set_config ($_, $host_config{$host}{$_},
+					$host, $config_file, $lineno);
+		  }
+	      }
+
+	    next;
+	  }
+
+	if (/^\s*<\/Perl>\s*$/i)
+	  {
+	    die "$config_file:$lineno: unmatched </Perl>";
+	  }
+
 	# Split the line on the first : character.
 	unless (/^(.*?):(.*)$/)
 	  {
@@ -2746,25 +2876,44 @@ sub _open_config_file
 	$value =~ s/^\s+//;
 	$value =~ s/\s+$//;
 
-	# Convert the key to standard form so that small errors in the
-	# FTP config file won't matter too much.
-	$key = lc ($key);
-	$key =~ tr/ / /s;
+	$self->_set_config ($key, $value, $sitename, $config_file, $lineno);
+      }
+  }
 
-	# If the key is ``ip:'' then we treat it specially - adding it
-	# to a hash from IP addresses to sites.
-	if ($key eq "ip")
+sub _set_config
+  {
+    my $self = shift;
+    my $key = shift;
+    my $value = shift;
+    my $sitename = shift;
+    my $config_file = shift;
+    my $lineno = shift;
+
+    # Convert the key to standard form so that small errors in the
+    # FTP config file won't matter too much.
+    $key = lc ($key);
+    $key =~ tr/ / /s;
+
+    # If the key is ``ip:'' then we treat it specially - adding it
+    # to a hash from IP addresses to sites.
+    if ($key eq "ip")
+      {
+	unless ($sitename)
 	  {
-	    $self->{_config_ip_host}{$value} = $sitename;
+	    die "$config_file:$lineno: ``ip:'' must only appear inside a <Host> section. See the Net::FTPServer(3) manual page for more information.";
 	  }
 
-	# Prefix the sitename, if defined.
-	$key = "$sitename:$key" if $sitename;
-
-	# Save this.
-	$self->{_config}{$key} = [] unless exists $self->{_config}{$key};
-	push @{$self->{_config}{$key}}, $value;
+	$self->{_config_ip_host}{$value} = $sitename;
       }
+
+    # Prefix the sitename, if defined.
+    $key = "$sitename:$key" if $sitename;
+
+#    warn "configuration ($key, $value)";
+
+    # Save this.
+    $self->{_config}{$key} = [] unless exists $self->{_config}{$key};
+    push @{$self->{_config}{$key}}, $value;
   }
 
 # Before printing something received from the user to syslog, escape
