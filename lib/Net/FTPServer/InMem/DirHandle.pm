@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.7 2001/06/12 17:08:48 rbrown Exp $
+# $Id: DirHandle.pm,v 1.10 2001/10/24 14:40:06 rich Exp $
 
 =pod
 
@@ -43,10 +42,8 @@ package Net::FTPServer::InMem::DirHandle;
 
 use strict;
 
-# Some magic which is required by CPAN. This is not the real version
-# number. If you want that, have a look at FTPServer::VERSION.
 use vars qw($VERSION);
-$VERSION = '1.0';
+( $VERSION ) = '$Revision: 1.10 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Carp qw(confess croak);
 use IO::Scalar;
@@ -401,36 +398,6 @@ sub open
       {
 	croak "unknown file mode: $mode; use 'r', 'w' or 'a' instead";
       }
-  }
-
-sub can_write
-  {
-    return 1;
-  }
-
-sub can_delete
-  {
-    return 1;
-  }
-
-sub can_enter
-  {
-    return 1;
-  }
-
-sub can_list
-  {
-    return 1;
-  }
-
-sub can_rename
-  {
-    return 1;
-  }
-
-sub can_mkdir
-  {
-    return 1;
   }
 
 1 # So that the require or use succeeds.

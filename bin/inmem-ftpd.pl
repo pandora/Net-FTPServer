@@ -1,4 +1,8 @@
-#!/usr/bin/perl -w -T
+#!/bin/sh
+# -*- perl -*-
+exec perl -x -wT $0 "$@";
+exit 1;
+#!perl
 
 # Net::FTPServer A Perl FTP Server
 # Copyright (C) 2000 Bibliotech Ltd., Unit 2-3, 50 Carnwath Road,
@@ -22,13 +26,13 @@
 #
 # By Richard W.M. Jones <rich@annexia.org>.
 #
-# $Id: dbeg1-ftpd,v 1.4 2001/07/17 16:01:36 rbrown Exp $
+# $Id: inmem-ftpd.pl,v 1.1 2001/12/30 14:38:31 rich Exp $
 #
 # To run this in background daemon mode, listening on port 2000, do:
 #
-#   dbeg1-ftpd -S -p 2000
+#   inmem-ftpd -S -p 2000
 
 use strict;
-use Net::FTPServer::DBeg1::Server;
+use Net::FTPServer::InMem::Server;
 
-my $ftps = Net::FTPServer::DBeg1::Server->run;
+my $ftps = Net::FTPServer::InMem::Server->run;

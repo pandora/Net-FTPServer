@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -19,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: Server.pm,v 1.7 2001/07/25 19:18:23 rich Exp $
+# $Id: Server.pm,v 1.9 2001/10/24 14:40:06 rich Exp $
 
 =pod
 
@@ -50,10 +49,8 @@ use strict;
 # Authen::PAM is an optional module.
 BEGIN { eval "use Authen::PAM;"; }
 
-# Some magic which is required by CPAN. This is not the real version
-# number. If you want that, have a look at FTPServer::VERSION.
 use vars qw($VERSION);
-$VERSION = '1.0';
+( $VERSION ) = '$Revision: 1.9 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer;
 use Net::FTPServer::Full::FileHandle;
