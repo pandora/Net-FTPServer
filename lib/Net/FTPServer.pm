@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.180 2002/05/11 16:00:35 rich Exp $
+# $Id: FTPServer.pm,v 1.181 2002/05/11 16:13:39 rich Exp $
 
 =pod
 
@@ -1701,7 +1701,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.180 2002/05/11 16:00:35 rich Exp $
+  200-$Id: FTPServer.pm,v 1.181 2002/05/11 16:13:39 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2068,7 +2068,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.105';
+$VERSION = '1.106';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.

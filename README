@@ -1,4 +1,4 @@
-$Id: README,v 1.59 2002/05/11 16:00:34 rich Exp $
+$Id: README,v 1.61 2002/05/13 14:26:26 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,8 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.106: EXPERIMENTAL RELEASE. Added a "debian/" directory.
 
 Version 1.105: EXPERIMENTAL RELEASE. The "Full" backend now has
 an additional option ("password file") to allow authentication
