@@ -1,3 +1,4 @@
+#!/usr/bin/perl -w -T
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -18,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.7 2001/10/24 14:40:07 rich Exp $
+# $Id: FileHandle.pm,v 1.4 2001/07/25 19:18:24 rich Exp $
 
 =pod
 
@@ -42,8 +43,10 @@ package Net::FTPServer::RO::FileHandle;
 
 use strict;
 
+# Some magic which is required by CPAN. This is not the real version
+# number. If you want that, have a look at FTPServer::VERSION.
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.7 $ ' =~ /\$Revision:\s+([^\s]+)/;
+$VERSION = '1.0';
 
 use Net::FTPServer::FileHandle;
 
@@ -177,6 +180,73 @@ successful, then return 0, else if there was an error return -1.
 sub delete
   {
     return -1;			# Not permitted in read-only server.
+  }
+
+=pod
+
+=item $rv = $fileh->can_read;
+
+Return true if the current user can read the given file.
+
+=cut
+
+sub can_read
+  {
+    my $self = shift;
+
+    return -r $self->{_pathname};
+  }
+
+=pod
+
+=item $rv = $fileh->can_write;
+
+Return true if the current user can overwrite the given file.
+
+=cut
+
+sub can_write
+  {
+    return 0;
+  }
+
+=pod
+
+=item $rv = $fileh->can_append
+
+Return true if the current user can append to the given file.
+
+=cut
+
+sub can_append
+  {
+    return 0;
+  }
+
+=pod
+
+=item $rv = $fileh->can_rename;
+
+Return true if the current user can change the name of the given file.
+
+=cut
+
+sub can_rename
+  {
+    return 0;
+  }
+
+=pod
+
+=item $rv = $fileh->can_delete;
+
+Return true if the current user can delete the given file.
+
+=cut
+
+sub can_delete
+  {
+    return 0;
   }
 
 1 # So that the require or use succeeds.
