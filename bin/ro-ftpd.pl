@@ -26,13 +26,13 @@ exit 1;
 #
 # By Richard W.M. Jones <rich@annexia.org>.
 #
-# $Id: inmem-ftpd,v 1.4 2001/10/24 14:39:59 rich Exp $
+# $Id: ro-ftpd.pl,v 1.1 2001/12/30 14:38:31 rich Exp $
 #
 # To run this in background daemon mode, listening on port 2000, do:
 #
-#   inmem-ftpd -S -p 2000
+#   ftpd -S -p 2000
 
 use strict;
-use Net::FTPServer::InMem::Server;
+use Net::FTPServer::RO::Server;
 
-my $ftps = Net::FTPServer::InMem::Server->run;
+my $ftps = Net::FTPServer::RO::Server->run;

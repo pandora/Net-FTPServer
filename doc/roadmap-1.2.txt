@@ -47,6 +47,8 @@ lists all users logged in. It will be worthwhile restricting this
 command to just a specific class or classes of users by using
 advanced command filters (see below).
 
+[ => See sharedstate.txt ]
+
 Upload and download quotas and credits (glftpd)
 -----------------------------------------------
 
@@ -163,6 +165,8 @@ This is the current complete list of hooks:
   system_error_hook
   quit_hook
 
+[ => modules.txt ]
+
 Upload and download hooks
 -------------------------
 
@@ -212,6 +216,8 @@ space matching any number of whitespace characters.
 
 The default for all commands is to allow for all.
 
+[Implementation complete.]
+
 Archive mode
 ------------
 
@@ -222,6 +228,22 @@ Archive filters and generators can be implemented as loadable modules.
 Add PGP encryption filters for downloads, and, if possible, uploads.
 I don't have the resources to do a full SSL implementation, and this
 should satisfy most requirements.
+
+Better handling of symbolic links
+---------------------------------
+
+Symbolic links are not handled very well at the moment. The code
+has a lot of places which does stuff like this:
+
+ my ($type) = $fileh->status;
+ if ($type eq 'f') { do something }
+ elsif ($type eq 'd') { do something else }
+ else { don't really know what to do ... }
+
+There is also a lot of confusion over stat vs. lstat.
+
+Symbolic links should be recognized as a separate type equal in
+importance to files and directories.
 
 License, (C) copyright changes
 ------------------------------

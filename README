@@ -1,4 +1,4 @@
-$Id: README,v 1.53 2001/10/28 16:31:10 rich Exp $
+$Id: README,v 1.55 2001/12/30 14:38:30 rich Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,10 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.103: EXPERIMENTAL RELEASE. Documentation updates (azazel).
+Install start-up scripts and ftpd.conf file automatically. Multiple
+fixes to RPM spec file. Additional roadmap docs.
 
 Version 1.102: EXPERIMENTAL RELEASE. Better handling of CPAN version
 numbers in subclasses. Load Digest::MD5 early so it works with chroot

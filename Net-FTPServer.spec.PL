@@ -1,6 +1,6 @@
 # Copyright (C) 1999 Bibliotech Ltd., 631-633 Fulham Rd., London SW6 5UQ.
 #
-# $Id: Net-FTPServer.spec.PL,v 1.10 2001/09/01 09:44:18 rich Exp $
+# $Id: Net-FTPServer.spec.PL,v 1.11 2001/12/30 14:38:30 rich Exp $
 
 use strict;
 
@@ -47,6 +47,7 @@ Requires: File-Sync >= 0.09
 Requires: IO-stringy >= 1.220
 Requires: perl >= %{perlversion}
 
+
 %description
 
 
@@ -62,16 +63,35 @@ make test
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make PREFIX=$RPM_BUILD_ROOT/usr install
-find $RPM_BUILD_ROOT/usr -type f -print | perl -p -e "s@^$RPM_BUILD_ROOT(.*)@\$1*@g" | grep -v perllocal.pod > %{name}-filelist
+make NOCONF=1 PREFIX=$RPM_BUILD_ROOT/usr install
+
+mkdir $RPM_BUILD_ROOT/etc
+install -c -m 0644 ftpd.conf $RPM_BUILD_ROOT/etc
+
+mkdir -p $RPM_BUILD_ROOT/usr/share/doc/%{name}-%{version}
+cp AUTHORS COPYING FAQ INSTALL README TODO doc/* \
+  $RPM_BUILD_ROOT/usr/share/doc/%{name}-%{version}
+
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%files -f %{name}-filelist
+
+%files
 %defattr(-,root,root)
+%{perlsitearch}/auto/Net/FTPServer/
+%{perlsitearch}/Net/FTPServer.pm
+%{perlsitearch}/Net/FTPServer/
+%{perlman3dir}/*.3*
+/usr/sbin/*.pl
+%config(noreplace) /etc/ftpd.conf
+%doc /usr/share/doc/%{name}-%{version}/
+
 
 %changelog
+* Fri Dec 28 2001 Richard Jones <rich@annexia.org>
+- Better handling of different Perl versions. RPM contains documentation,
+- config file and start-up scripts.
 * Tue Feb 15 2001 Rob Brown <rbrown@about-inc.com>
 - Generalized files - works with Perl 5.6 as well as with Perl 5.005
 * Tue Feb 08 2001 Richard Jones <rich@annexia.org>

@@ -26,7 +26,7 @@ exit 1;
 #
 # By Richard W.M. Jones <rich@annexia.org>.
 #
-# $Id: dbeg1-ftpd,v 1.5 2001/10/24 14:39:59 rich Exp $
+# $Id: dbeg1-ftpd.pl,v 1.1 2001/12/30 14:38:31 rich Exp $
 #
 # To run this in background daemon mode, listening on port 2000, do:
 #

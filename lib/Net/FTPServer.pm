@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.171 2001/10/28 16:31:10 rich Exp $
+# $Id: FTPServer.pm,v 1.174 2001/12/30 14:38:32 rich Exp $
 
 =pod
 
@@ -62,21 +62,25 @@ Full documentation for all the possible options which you
 may use in this file is contained in this manual page. See
 the section CONFIGURATION below.
 
-You should edit the standard file and then copy it
-to C</etc/ftpd.conf>:
+After doing C<make install>, the standard C<ftpd.conf> file should
+have been installed in C</etc/ftpd.conf>. You will probably need to
+edit this file to suit your local configuration.
 
-  install -c -o root -g root -m 0644 ftpd.conf /etc/
+Also after doing C<make install>, several start-up scripts will
+have been installed in C</usr/sbin/*ftpd.pl>. Each start-up script
+starts the server in a different configuration: either as a full
+FTP server, or as an anonymous-only read-only FTP server, etc.
 
-Two start-up scripts are supplied with the ftp server, to run it in
-two common configurations: either as a full FTP server or as an
-anonymous-only read-only FTP server. The scripts are C<ftpd> and
-C<ro-ftpd>. You may need to edit these scripts if the Perl interpreter
-cannot be found on the current C<$PATH>.
+The commonly used scripts are:
 
-You should copy the appropriate script, either C<ftpd> or
-C<ro-ftpd> to a suitable place (for example: C</usr/sbin/in.ftpd>).
+ * /usr/sbin/ftpd.pl
+ * /usr/sbin/ro-ftpd.pl
 
-  install -c -o root -g root -m 0755 ftpd /usr/sbin/in.ftpd
+The first script is for the full FTP server.
+
+These scripts assume that the C<perl> interpreter can be found on the
+current C<$PATH>. In the rare situation when this is not the case, you
+may need to edit these scripts.
 
 =head2 STANDALONE SERVER
 
@@ -84,20 +88,24 @@ If you have a high load site, you will want to run C<Net::FTPServer>
 as a standalone server. To start C<Net::FTPServer> as a standalone
 server, do:
 
-  /usr/sbin/in.ftpd -S
+  /usr/sbin/ftpd.pl -S
 
 You may want to add this to your local start-up files so that
 the server starts automatically when you boot the machine.
 
 To stop the server, do:
 
-  killall in.ftpd
+  killall ftpd.pl
+
+(Note: C<Azazel> points out that the above is a Linux-ism. Solaris
+administrators may get a nasty shock if they type C<killall> as C<root>!
+Just kill the parent C<ftpd.pl> process by hand instead).
 
 =head2 RUNNING FROM INETD
 
 Add the following line to C</etc/inetd.conf>:
 
-  ftp stream tcp nowait root /usr/sbin/tcpd in.ftpd
+  ftp stream tcp nowait root /usr/sbin/tcpd ftpd.pl
 
 (This assumes that you have the C<tcp-wrappers> package installed to
 provide basic access control through C</etc/hosts.allow> and
@@ -107,6 +115,38 @@ control which you may configure through C</etc/ftpd.conf>.)
 After editing this file you will need to inform C<inetd>:
 
   killall -HUP inetd
+
+=head2 RUNNING FROM XINETD
+
+C<xinetd> is a modern alternative to C<inetd> which is supposedly
+simpler to configure. In practice, however, it has proven to be quite
+difficult to configure services under C<xinetd> (mainly because
+C<xinetd> gives no diagnostic information when things go wrong). The
+following configuration has worked for me:
+
+Create the file C</etc/xinetd.d/net-ftpserver> containing:
+
+ # default: on
+ # description: Net::FTPServer, a secure, \
+ #              extensible, configurable FTP server.
+ #
+ service ftp
+ {
+        socket_type             = stream
+        wait                    = no
+        user                    = root
+        server                  = /usr/sbin/ftpd.pl
+        log_on_success          += DURATION USERID
+        log_on_failure          += USERID
+        disable                 = no
+ }
+
+Check any other possible FTP server configurations to ensure they
+are all disabled (ie. C<disable = yes> in all other files).
+
+Restart C<xinetd> using:
+
+ /etc/init.d/xinetd restart
 
 =head1 COMMAND LINE FLAGS
 
@@ -1598,7 +1638,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.171 2001/10/28 16:31:10 rich Exp $
+  200-$Id: FTPServer.pm,v 1.174 2001/12/30 14:38:32 rich Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -1965,7 +2005,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.102';
+$VERSION = '1.103';
 $RELEASE = 1;
 
 # Implement dynamic loading of XSUB code.

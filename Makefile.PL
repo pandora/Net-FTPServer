@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.18 2001/09/21 14:53:58 rich Exp $
+# $Id: Makefile.PL,v 1.19 2001/12/30 14:38:30 rich Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -184,9 +184,17 @@ WriteMakefile(
 	      NAME => "Net::FTPServer",
 	      VERSION_FROM => "lib/Net/FTPServer.pm",
 
+	      # These are for the XS code.
 	      DEFINE => '',
 	      LIBS => [''],
 	      INC => '',
+
+	      # Install start-up scripts under /usr/sbin.
+	      EXE_FILES => [ 'bin/dbeg1-ftpd.pl',
+			     'bin/ftpd.pl',
+			     'bin/inmem-ftpd.pl',
+			     'bin/ro-ftpd.pl' ],
+	      INSTALLSCRIPT => "/usr/sbin",
 
 	      dist =>
 	      {
@@ -233,6 +241,15 @@ check-manifest:
 	sort MANIFEST > .orig-manifest; \
 	diff -u .orig-manifest .check-manifest; \
 	rm -f .orig-manifest .check-manifest
+
+install ::
+	[ "${NOCONF}" ] || install -c -o root -g root -m 0644 ftpd.conf /etc
+	@echo
+	@echo "Net::FTPServer has been installed. Before proceeding please"
+	@echo "read the manual page. Type:"
+	@echo
+	@echo "  man Net::FTPServer"
+	@echo
 ';
   }
 
