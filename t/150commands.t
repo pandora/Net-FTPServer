@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 150commands.t,v 1.2 2001/08/23 11:24:20 rich Exp $
+# $Id: 150commands.t,v 1.3 2003/01/13 19:08:54 rbrown Exp $
 
 use strict;
 use Test;
@@ -217,9 +217,10 @@ $_ = <INFD1>;
 ok (/^502/);
 
 # LANG command.
+my $LANG = $ENV{LANGUAGE} || "en";
 print OUTFD0 "LANG\r\n";
 $_ = <INFD1>;
-ok (/^200 .*en\./);
+ok (/^200 .*\Q$LANG\E\./);
 
 print OUTFD0 "LANG fr\r\n";
 $_ = <INFD1>;

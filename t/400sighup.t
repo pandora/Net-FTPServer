@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 400sighup.t,v 1.6 2002/12/31 03:30:18 rbrown Exp $
+# $Id: 400sighup.t,v 1.7 2003/01/13 19:02:44 rbrown Exp $
 
 use strict;
 use Test;
@@ -121,13 +121,17 @@ greeting type: full
 EOT
 close CF;
 
+$listening = 0;
+
 # Send SIGHUP to the server.
 ok (kill SIGHUP, $pid);
 
-# The listen queue should hold us until
-# the new server is ready to accept.
-# There is no need to wait until the server
-# has completely restarted.
+# We know the server is ready when $listening == 1
+while (!$listening and kill 0, $pid) {
+  # Server still starting up.
+  sleep 1; #  *YAWN*  (Patience until it's ready.)
+  waitpid($pid,WNOHANG);
+}
 
 "0" =~ /(0)/; # Perl 5.7 / IO::Socket::INET bug workaround.
 $sock = new IO::Socket::INET->new (PeerAddr => "localhost",

@@ -1,4 +1,4 @@
-$Id: README,v 1.77 2003/01/06 08:50:56 rbrown Exp $
+$Id: README,v 1.79 2003/01/13 19:13:35 rbrown Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -80,6 +80,13 @@ Richard Jones <rich@annexia.org>.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.114: EXPERIMENTAL RELEASE. No new features. Bug fixes only.
+Fix t/150commands.t LANG test failure on some systems.  Avoid race
+condition in t/400sighup.t that can occur when client connects before
+SIGHUP is done restarting the server.  Fixed the RMD bug introduced
+from Luis' Darwin / Mac OS X "removing directoring" patch in 1.112.
+Now RMD works again for the "Full" personality.
 
 Version 1.113: EXPERIMENTAL RELEASE. Removed all XS code. Signal
 handlers are pure perl now even for older versions of perl < 5.7.

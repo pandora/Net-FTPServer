@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.197 2003/01/06 07:11:53 rbrown Exp $
+# $Id: FTPServer.pm,v 1.198 2003/01/06 09:23:18 rbrown Exp $
 
 =pod
 
@@ -1713,7 +1713,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.197 2003/01/06 07:11:53 rbrown Exp $
+  200-$Id: FTPServer.pm,v 1.198 2003/01/06 09:23:18 rbrown Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2080,7 +2080,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.113';
+$VERSION = '1.114';
 $RELEASE = 1;
 
 # Non-optional modules.

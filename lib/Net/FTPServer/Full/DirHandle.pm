@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: DirHandle.pm,v 1.13 2002/12/28 02:31:04 rbrown Exp $
+# $Id: DirHandle.pm,v 1.14 2003/01/13 18:23:52 rbrown Exp $
 
 =pod
 
@@ -43,7 +43,7 @@ package Net::FTPServer::Full::DirHandle;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.13 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.14 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use IO::Dir;
 use Carp qw(confess);
@@ -304,7 +304,7 @@ sub delete
 
     # Darwin / Mac OS X cannot delete a directory with a trailing "/", so
     # remove it first (thanks Luis Mun\~oz for fixing this).
-    my $path = $self->{pathname};
+    my $path = $self->{_pathname};
     $path =~ s,/+$,, if $path ne "/";
     rmdir $path or return -1;
 
