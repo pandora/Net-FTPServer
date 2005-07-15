@@ -1,3 +1,30 @@
+libnet-ftpserver-perl (1.120-1) unstable; urgency=low
+
+  * New upstream release:
+    > Includes an ftp proxy (experimental).
+    > Suggests libnet-perl (already in perl-modules >= 5.8).
+  * Depend on libio-stringy-perl instead of only recommending it.
+
+ -- Chip Salzenberg <chip@debian.org>  Thu, 26 Feb 2004 11:03:00 -0500
+
+libnet-ftpserver-perl (1.118-2) unstable; urgency=high
+
+  * Fix Build-Depends by deleting my hacked dpkg-source.
+
+ -- Chip Salzenberg <chip@debian.org>  Sun,  5 Oct 2003 21:45:56 -0400
+
+libnet-ftpserver-perl (1.118-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Chip Salzenberg <chip@debian.org>  Fri,  3 Oct 2003 19:19:37 -0400
+
+libnet-ftpserver-perl (1.116-1) unstable; urgency=low
+
+  * New upstream release.  (closes: 193446)
+
+ -- Chip Salzenberg <chip@debian.org>  Thu, 24 Jul 2003 17:47:25 -0400
+
 libnet-ftpserver-perl (1.112-1) unstable; urgency=low
 
   * New upstream version.

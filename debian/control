@@ -1,15 +1,16 @@
 Source: libnet-ftpserver-perl
-Section: interpreters
+Section: perl
 Priority: optional
-Build-Depends: debhelper (>= 3.0.5), perl (>= 5.8), libarchive-tar-perl, libauthen-pam-perl (>= 0.12), libbsd-resource-perl, libio-stringy-perl (>= 1.126), libarchive-zip-perl (>= 0.11), libcompress-zlib-perl (>= 1.14), libdbi-perl, libfile-sync-perl
+Build-Depends: debhelper (>= 4.0.2)
+Build-Depends-Indep: perl (>= 5.8.0-7), libio-stringy-perl (>= 1.126), libarchive-tar-perl, libauthen-pam-perl (>= 0.12), libbsd-resource-perl, libarchive-zip-perl (>= 0.11), libcompress-zlib-perl (>= 1.14), libdbi-perl, libfile-sync-perl, libnet-perl
 Maintainer: Chip Salzenberg <chip@debian.org>
-Standards-Version: 3.5.1
+Standards-Version: 3.6.1
 
 Package: libnet-ftpserver-perl
 Architecture: all
-Depends: perl (>= 5.8)
-Recommends: libarchive-tar-perl, libauthen-pam-perl (>= 0.12), libbsd-resource-perl, libio-stringy-perl (>= 1.126)
-Suggests: libarchive-zip-perl (>= 0.11), libcompress-zlib-perl (>= 1.14), libdbi-perl, libfile-sync-perl
+Depends: perl (>= 5.8.0-7), ${misc:Depends}, libio-stringy-perl (>= 1.126)
+Recommends: libarchive-tar-perl, libauthen-pam-perl (>= 0.12), libbsd-resource-perl
+Suggests: libarchive-zip-perl (>= 0.11), libcompress-zlib-perl (>= 1.14), libdbi-perl, libfile-sync-perl, libnet-perl
 Description:  A secure, extensible and configurable Perl FTP server
  Net::FTPServer is a secure, extensible and configurable FTP
  server written in Perl.
@@ -31,3 +32,4 @@ Description:  A secure, extensible and configurable Perl FTP server
    * Directory aliases and CDPATH support.
    * Extensible command set.
    * Generate archives on the fly.
+   * FTP proxy daemon (experimental).

@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FileHandle.pm,v 1.1 2003/09/28 11:50:45 rwmj Exp $
+# $Id: FileHandle.pm,v 1.2 2004/11/10 14:24:57 rwmj Exp $
 
 =pod
 
@@ -43,7 +43,7 @@ package Net::FTPServer::RO::FileHandle;
 use strict;
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = '$Revision: 1.2 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
 use Net::FTPServer::FileHandle;
 
@@ -122,7 +122,7 @@ sub status
     # If the file has been removed since we created this
     # handle, then $dev will be undefined. Return dummy status
     # information.
-    return ("f", 0000, 1, "-", "-", 0, 0) unless $dev;
+    return ("f", 0000, 1, "-", "-", 0, 0) unless defined $dev;
 
     # Generate printable user/group.
     my $user = getpwuid ($uid) || "-";

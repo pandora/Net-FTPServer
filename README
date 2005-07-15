@@ -1,4 +1,4 @@
-$Id: README,v 1.10 2004/02/08 19:21:55 rwmj Exp $
+$Id: README,v 1.11 2004/02/08 19:28:56 rwmj Exp $
 
 Biblio@Tech Net::FTPServer - A full-featured, secure, extensible
 and configurable Perl FTP server.
@@ -82,6 +82,9 @@ list.
 ---------------------------------------------
 CHANGE LOG
 ---------------------------------------------
+
+Version 1.121: EXPERIMENTAL RELEASE.  
+
 
 Version 1.120: EXPERIMENTAL RELEASE.  Added PREREQ_PM to Makefile.PL
 so CPAN works (thanks to barbie at missbarbell dot co dot uk).  Fixed

@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.4 2004/02/08 19:21:55 rwmj Exp $
+# $Id: Makefile.PL,v 1.5 2005/02/22 16:17:31 rwmj Exp $
 # -*- perl -*-
 
 # Net::FTPServer A Perl FTP Server
@@ -291,8 +291,9 @@ check-manifest:
 
 install ::
 	@if [ ! "${NOCONF}" ]; then \
+          mkdir -p $(sysconfdir); \
 	  if [ ! -f $(sysconfdir)/ftpd.conf ]; then \
-	    install -c -D -m 0644 ftpd.conf $(sysconfdir)/ftpd.conf; \
+	    install -c -m 0644 ftpd.conf $(sysconfdir)/ftpd.conf; \
 	  else \
 	    install -c -m 0644 ftpd.conf $(sysconfdir)/ftpd.conf.new; \
 	    echo "Old configuration file $(sysconfdir)/ftpd.conf not overwritten."; \

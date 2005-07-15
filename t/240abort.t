@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $Id: 240abort.t,v 1.1 2003/09/28 11:50:45 rwmj Exp $
+# $Id: 240abort.t,v 1.2 2004/12/01 13:00:50 rwmj Exp $
 
 use strict;
 use Test;
@@ -114,6 +114,8 @@ foreach my $mode ('A', 'I')
     # Check the error from the RETR command.
     $_ = <INFD1>;
     ok (/^426/);
+    # (Previous command may have sent continuation lines, so lose those first)
+    $_ = <INFD1> while m/^\d\d\d-/;
 
     # And check the return from the ABOR command.
     $_ = <INFD1>;

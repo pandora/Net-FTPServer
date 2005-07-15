@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# $Id: FTPServer.pm,v 1.8 2004/02/08 19:21:55 rwmj Exp $
+# $Id: FTPServer.pm,v 1.11 2005/07/15 10:10:22 rwmj Exp $
 
 =pod
 
@@ -1769,7 +1769,7 @@ C<SITE SHOW> command:
 
   ftp> site show README
   200-File README:
-  200-$Id: FTPServer.pm,v 1.8 2004/02/08 19:21:55 rwmj Exp $
+  200-$Id: FTPServer.pm,v 1.11 2005/07/15 10:10:22 rwmj Exp $
   200-
   200-Net::FTPServer - A secure, extensible and configurable Perl FTP server.
   [...]
@@ -2136,7 +2136,7 @@ use strict;
 
 use vars qw($VERSION $RELEASE);
 
-$VERSION = '1.120';
+$VERSION = '1.122';
 $RELEASE = 1;
 
 # Non-optional modules.
@@ -3149,7 +3149,8 @@ sub _open_xfer_log
     my $self = shift ;
     if ( my $log_file = $self->config("xfer logging") ) {
       $log_file = $self->resolve_log_file_name($log_file) ;
-      if ( $log_file ne $self->{_xfer_file} ) {
+      if ( !defined $self->{_xfer_file} ||
+          $log_file ne $self->{_xfer_file} ) {
 	if ( my $io = $self->{_xferlog} ) {
 	  $io->close ;
 	  delete $self->{_xferlog} ;
@@ -3173,7 +3174,8 @@ sub _open_client_log
     my $self = shift ;
     if ( my $log_file = $self->config("client logging") ) {
       $log_file = $self->resolve_log_file_name($log_file) ;
-      if ( $log_file ne $self->{_client_file} ) {
+      if (!defined $self->{_client_file} ||
+          $log_file ne $self->{_client_file} ) {
 	if ( my $io = $self->{_client_log} ) {
 	  $io->close ;
 	  delete $self->{_client_log} ;
@@ -3207,9 +3209,9 @@ sub resolve_log_file_name
 sub _log_line
   {
     my $self = shift;
-    return unless exists $self->{client_log};
+    return unless exists $self->{_client_log};
     my $message = join ("",@_);
-    my $io = $self->{client_log};
+    my $io = $self->{_client_log};
     my $time = scalar localtime;
     my $authenticated = $self->{authenticated} ? $self->{user} : "-";
     $message =~ s/\n*$/\n/;
