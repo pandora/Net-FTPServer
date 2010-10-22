@@ -107,16 +107,18 @@ sub get {
     return unless $url;
 
     my $response = $self->{_ua}->get($url);
-    if ($response->is_success) {
-            my $content = $response->decoded_content;
-            # Does the file exists on the web server ?
-            return new Net::FTPServer::HTTP::FileHandle (
-                    $self->{ftps},
-                    $self->pathname . $filename,
-                    $self->{fs_dir_id},
-                    time,
-                    \$content,
-            );
+    if(length $response->content && $response->content_type =~ m|^image|) {
+            if ($response->is_success) {
+                    my $content = $response->decoded_content;
+                    # Does the file exists on the web server ?
+                    return new Net::FTPServer::HTTP::FileHandle (
+                            $self->{ftps},
+                            $self->pathname . $filename,
+                            $self->{fs_dir_id},
+                            time,
+                            \$content,
+                    );
+            }
     }
     return;
 }
