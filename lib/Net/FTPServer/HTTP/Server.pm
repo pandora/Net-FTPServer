@@ -66,7 +66,7 @@ sub pre_configuration_hook
 
 =item $dirh = $self->root_directory_hook;
 
-Hook: Return an instance of Net::FTPServer::FullDirHandle
+Hook: Return an instance of Net::FTPServer::HTTP::DirHandle
 corresponding to the root directory.
 
 =cut
