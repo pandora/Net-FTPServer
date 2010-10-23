@@ -62,6 +62,20 @@ sub pre_configuration_hook
     $self->{version_string} .= " Net::FTPServer::HTTP/$VERSION";
   }
 
+=pod
+
+=item $dirh = $self->root_directory_hook;
+
+Hook: Return an instance of Net::FTPServer::FullDirHandle
+corresponding to the root directory.
+
+=cut
+
+sub root_directory_hook {
+    my $self = shift;
+    return new Net::FTPServer::HTTP::DirHandle ($self);
+}
+
 1;
 
 __END__
