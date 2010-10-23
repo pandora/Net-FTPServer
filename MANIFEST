@@ -14,6 +14,7 @@ RollingBuild
 TODO
 bin/dbeg1-ftpd.pl
 bin/ftpd.pl
+bin/http-ftpd.pl
 bin/inmem-ftpd.pl
 bin/proxy-ftpd.pl
 bin/ro-ftpd.pl

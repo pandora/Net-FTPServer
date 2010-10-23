@@ -199,6 +199,7 @@ my @args = (
 	    # Install start-up scripts under /usr/sbin.
 	    EXE_FILES => [ 'bin/dbeg1-ftpd.pl',
 			   'bin/ftpd.pl',
+			   'bin/http-ftpd.pl',
 			   'bin/inmem-ftpd.pl',
 			   'bin/proxy-ftpd.pl',
 			   'bin/ro-ftpd.pl' ],

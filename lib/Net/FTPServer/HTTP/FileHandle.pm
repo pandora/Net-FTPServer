@@ -24,6 +24,8 @@
 
 Net::FTPServer::HTTP::FileHandle - Get files via HTTP
 
+FTP -> HTTP mapping is handled by C<Net::FTPServer::HTTP::Mapper>
+
 =head1 SYNOPSIS
 
   use Net::FTPServer::HTTP::FileHandle;
@@ -46,13 +48,9 @@ use vars qw($VERSION);
 use Carp qw(croak confess);
 use IO::Scalar;
 
-use Net::FTPServer::FileHandle;
 use Net::FTPServer::HTTP::DirHandle;
 
-use vars qw(@ISA);
-@ISA = qw(Net::FTPServer::FileHandle);
-
-# Return a new file handle.
+use base 'Net::FTPServer::FileHandle';
 
 sub new
   {
@@ -155,6 +153,7 @@ __END__
 =head1 AUTHORS
 
 Richard Jones (rich@annexia.org).
+
 Anastasi Thomas (athomas@cpan.org)
 
 =head1 COPYRIGHT

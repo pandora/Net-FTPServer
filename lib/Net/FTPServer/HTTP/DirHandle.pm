@@ -24,6 +24,8 @@
 
 Net::FTPServer::HTTP::DirHandle - Get files via HTTP
 
+FTP -> HTTP mapping is handled by C<Net::FTPServer::HTTP::Mapper>
+
 =head1 SYNOPSIS
 
   use Net::FTPServer::HTTP::DirHandle;
@@ -48,12 +50,9 @@ use Carp qw(confess croak);
 use IO::Scalar;
 use LWP::UserAgent;
 
-use Net::FTPServer::DirHandle;
 use Net::FTPServer::HTTP::Mapper;
 
-use vars qw(@ISA);
-
-@ISA = qw(Net::FTPServer::DirHandle);
+use base 'Net::FTPServer::DirHandle';
 
 # Global variables.
 use vars qw(%dirs $next_dir_id %files $next_file_id);
@@ -198,7 +197,7 @@ sub open
       }
   }
 
-1
+1;
 
 __END__
 
@@ -207,6 +206,7 @@ __END__
 =head1 AUTHORS
 
 Richard Jones (rich@annexia.org).
+
 Anastasi Thomas (athomas@cpan.org)
 
 =head1 COPYRIGHT

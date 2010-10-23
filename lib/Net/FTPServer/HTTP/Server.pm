@@ -26,12 +26,14 @@ Net::FTPServer::HTTP::Server - Get files via HTTP
 
 =head1 SYNOPSIS
 
-  inmem-http [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file]
+  http-ftpd [-d] [-v] [-p port] [-s] [-S] [-V] [-C conf_file]
 
 =head1 DESCRIPTION
 
 C<Net::FTPServer::HTTP::Server> implements a simple
 FTP server which gets files from a remote location over HTTP.
+
+FTP -> HTTP mapping is handled by C<Net::FTPServer::HTTP::Mapper>
 
 =head1 METHODS
 
@@ -60,19 +62,7 @@ sub pre_configuration_hook
     $self->{version_string} .= " Net::FTPServer::HTTP/$VERSION";
   }
 
-# Called just after user C<$user> has successfully logged in.
-#sub user_login_hook { }
-
-#  Return an instance of Net::FTPServer::HTTP::DirHandle
-# corresponding to the root directory.
-
-sub root_directory_hook
-  {
-    my $self = shift;
-    return new Net::FTPServer::HTTP::DirHandle ($self);
-  }
-
-1 # So that the require or use succeeds.
+1;
 
 __END__
 
@@ -81,6 +71,7 @@ __END__
 =head1 AUTHORS
 
 Richard Jones (rich@annexia.org).
+
 Anastasi Thomas (athomas@cpan.org)
 
 =head1 COPYRIGHT
