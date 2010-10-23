@@ -94,7 +94,7 @@ sub get {
     my $self = shift;
     my $filename = shift;
 
-    $self->{_mapper} ||= Net::FTPServer::HTTP::Mapper->new;
+    $self->{_mapper} ||= Net::FTPServer::HTTP::Mapper->new({_ftps => $self->{ftps}});
     $self->{_ua} ||= LWP::UserAgent->new;
 
     # None of these cases should ever happen.

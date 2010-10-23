@@ -46,18 +46,10 @@ use strict;
 use vars qw($VERSION);
 ( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
 
-use Net::FTPServer;
 use Net::FTPServer::HTTP::FileHandle;
 use Net::FTPServer::HTTP::DirHandle;
 
-use vars qw(@ISA);
-@ISA = qw(Net::FTPServer);
-
-# Variables.
-use vars qw(%users);
-
-$users{rich} = '123456';
-$users{rob} = '123456';
+use base 'Net::FTPServer::Full::Server';
 
 # This is called before configuration.
 
@@ -68,28 +60,8 @@ sub pre_configuration_hook
     $self->{version_string} .= " Net::FTPServer::HTTP/$VERSION";
   }
 
-# Perform login against the database.
-
-sub authentication_hook
-  {
-return 0;
-    my $self = shift;
-    my $user = shift;
-    my $pass = shift;
-    my $user_is_anon = shift;
-
-    # Allow anonymous access.
-    return 0 if $user_is_anon;
-
-    # Verify access against our short list of username/password combinations.
-    return 0 if exists $users{$user} && $users{$user} eq $pass;
-
-    # Unsuccessful login.
-    return -1;
-  }
-
 # Called just after user C<$user> has successfully logged in.
-sub user_login_hook { }
+#sub user_login_hook { }
 
 #  Return an instance of Net::FTPServer::HTTP::DirHandle
 # corresponding to the root directory.
