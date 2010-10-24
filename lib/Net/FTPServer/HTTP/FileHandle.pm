@@ -117,34 +117,11 @@ sub status
     return ( 'f', 0644, 1, $username, "users", $size, 0 );
   }
 
-# Move a file to elsewhere.
+sub move { }
 
-sub move
-  {
-    my $self = shift;
-    my $dirh = shift;
-    my $filename = shift;
+sub delete { }
 
-    $Net::FTPServer::HTTP::DirHandle::files{$self->{fs_file_id}}{dir_id}
-      = $dirh->{fs_dir_id};
-    $Net::FTPServer::HTTP::DirHandle::files{$self->{fs_file_id}}{name}
-      = $filename;
-
-    return 0;
-  }
-
-# Delete a file.
-
-sub delete
-  {
-    my $self = shift;
-
-    delete $Net::FTPServer::HTTP::DirHandle::files{$self->{fs_file_id}};
-
-    return 0;
-  }
-
-1 # So that the require or use succeeds.
+1; 
 
 __END__
 

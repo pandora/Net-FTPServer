@@ -114,7 +114,7 @@ sub get {
                             $self->{ftps},
                             $self->pathname . $filename,
                             $self->{fs_dir_id},
-                            time,
+                            1,     # File_id not currently needed.
                             \$content,
                     );
             }
