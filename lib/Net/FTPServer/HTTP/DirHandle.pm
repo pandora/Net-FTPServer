@@ -49,6 +49,7 @@ use vars qw($VERSION);
 use Carp qw(confess croak);
 use IO::Scalar;
 use LWP::UserAgent;
+use List::MoreUtils qw/first_index/;
 
 use Net::FTPServer::HTTP::Mapper;
 
@@ -106,7 +107,7 @@ sub get {
     return unless $url;
 
     my $response = $self->{_ua}->get($url);
-    if(length $response->content && $response->content_type =~ m|^image|) {
+    if(length $response->content && $self->filter_by_content_type($response->content_type)) {
             if ($response->is_success) {
                     my $content = $response->decoded_content;
                     # Does the file exists on the web server ?
@@ -122,12 +123,20 @@ sub get {
     return;
 }
 
+sub filter_by_content_type {
+    my ($self, $type) = @_;
+    return 1 if grep {$_ =~ m/^$type$/i} (split /\s*,\s*/, $self->config('allow_content_types'));
+    return;
+}
+
 sub parent { }
 sub list { }
 sub list_status { }
 sub move { }
 sub delete { }
 sub mkdir { }
+
+sub config {return $_[0]->{ftps}->config($_[1]) || q{}}
 
 sub status 
   {
