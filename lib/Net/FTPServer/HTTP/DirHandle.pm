@@ -109,7 +109,6 @@ sub get {
     if(length $response->content && $self->filter_by_content_type($response->content_type)) {
             if ($response->is_success) {
                     my $content = $response->decoded_content;
-                    # Does the file exists on the web server ?
                     return new Net::FTPServer::HTTP::FileHandle (
                             $self->{ftps},
                             $self->pathname . $filename,
@@ -124,7 +123,7 @@ sub get {
 
 sub filter_by_content_type {
     my ($self, $type) = @_;
-    return 1 if grep {$_ =~ m/^$type$/i} (split /\s*,\s*/, $self->config('allow_content_types'));
+    return 1 if grep {$_ =~ /^$type$/i} (split /\s*,\s*/, $self->config('allow_content_types'));
     return;
 }
 
