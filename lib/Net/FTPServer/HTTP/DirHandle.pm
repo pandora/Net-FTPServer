@@ -49,7 +49,6 @@ use vars qw($VERSION);
 use Carp qw(confess croak);
 use IO::Scalar;
 use LWP::UserAgent;
-use List::MoreUtils qw/first_index/;
 
 use Net::FTPServer::HTTP::Mapper;
 
