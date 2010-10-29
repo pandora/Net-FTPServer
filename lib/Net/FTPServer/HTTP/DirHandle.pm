@@ -106,11 +106,8 @@ sub get {
     my $url = $self->{_mapper}->pathToHttp($filename);
     return unless $url;
 
-    my $request = HTTP::Request->new(HEAD => $url);
-    my $response = $self->request($request);
-
     if($self->filter_by_content_type($url)) {
-            $response = $self->{_ua}->get($url);
+            my $response = $self->{_ua}->get($url);
             if ($response->is_success) {
                     my $content = $response->decoded_content;
                     return new Net::FTPServer::HTTP::FileHandle (
@@ -130,7 +127,7 @@ sub filter_by_content_type {
     return 1 unless $self->config('allow_content_types');
 
     my $request = HTTP::Request->new(HEAD => $url);
-    my $response = $self->request($request);
+    my $response = $self->{_ua}->request($request);
     my $type = $response->content_type;
     return 1 if grep {$_ =~ /^$type$/i} (split /\s*,\s*/, $self->config('allow_content_types'));
     return;
