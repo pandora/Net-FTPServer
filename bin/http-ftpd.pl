@@ -1,9 +1,3 @@
-#!/bin/sh
-# -*- perl -*-
-exec perl -x -wT $0 "$@";
-exit 1;
-#!perl
-
 # Net::FTPServer A Perl FTP Server
 # Copyright (C) 2000 Bibliotech Ltd., Unit 2-3, 50 Carnwath Road,
 # London, SW6 3EG, United Kingdom.
