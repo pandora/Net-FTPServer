@@ -48,6 +48,7 @@ use vars qw($VERSION);
 
 use Carp qw(confess croak);
 use IO::Scalar;
+use HTTP::Request;
 use LWP::UserAgent;
 
 use Net::FTPServer::HTTP::Mapper;
@@ -105,8 +106,11 @@ sub get {
     my $url = $self->{_mapper}->pathToHttp($filename);
     return unless $url;
 
-    my $response = $self->{_ua}->get($url);
-    if(length $response->content && $self->filter_by_content_type($response->content_type)) {
+    my $request = HTTP::Request->new(HEAD => $url);
+    my $response = $self->request($request);
+
+    if($self->filter_by_content_type($url)) {
+            $response = $self->{_ua}->get($url);
             if ($response->is_success) {
                     my $content = $response->decoded_content;
                     return new Net::FTPServer::HTTP::FileHandle (
@@ -122,7 +126,12 @@ sub get {
 }
 
 sub filter_by_content_type {
-    my ($self, $type) = @_;
+    my ($self,$url) = @_;
+    return 1 unless $self->config('allow_content_types');
+
+    my $request = HTTP::Request->new(HEAD => $url);
+    my $response = $self->request($request);
+    my $type = $response->content_type;
     return 1 if grep {$_ =~ /^$type$/i} (split /\s*,\s*/, $self->config('allow_content_types'));
     return;
 }
