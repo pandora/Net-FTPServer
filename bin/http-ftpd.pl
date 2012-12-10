@@ -30,6 +30,7 @@ exit 1;
 #   http-ftpd -S -p 2000
 
 use strict;
-use Net::FTPServer::HTTP::Server;
+use warnings;
 
+use Net::FTPServer::HTTP::Server;
 my $ftps = Net::FTPServer::HTTP::Server->run;

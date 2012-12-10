@@ -52,8 +52,7 @@ use Net::FTPServer::HTTP::DirHandle;
 
 use base 'Net::FTPServer::FileHandle';
 
-sub new
-  {
+sub new {
     my $class = shift;
     my $ftps = shift;
     my $pathname = shift;
@@ -69,23 +68,21 @@ sub new
     $self->{fs_content} = $content;
 
     return bless $self, $class;
-  }
+}
 
 # Return the directory handle for this file.
 
-sub dir
-  {
+sub dir {
     my $self = shift;
 
     return Net::FTPServer::HTTP::DirHandle->new ($self->{ftps},
 						  $self->dirname,
 						  $self->{fs_dir_id});
-  }
+}
 
 # Open the file handle.
 
-sub open
-  {
+sub open  {
     my $self = shift;
     my $mode = shift;
 
@@ -130,8 +127,6 @@ __END__
 =head1 AUTHORS
 
 Richard Jones (rich@annexia.org).
-
-Anastasi Thomas (athomas@cpan.org)
 
 =head1 COPYRIGHT
 

@@ -65,8 +65,7 @@ $next_file_id = 1;
 
 # Return a new directory handle.
 
-sub new
-  {
+sub new {
     my $class = shift;
     my $ftps = shift;		# FTP server object.
     my $pathname = shift || "/"; # (only used in internal calls)
@@ -76,14 +75,12 @@ sub new
     my $self = Net::FTPServer::DirHandle->new ($ftps, $pathname);
     bless $self, $class;
 
-    if ($dir_id)
-      {
-	$self->{fs_dir_id} = $dir_id;
-      }
-    else
-      {
-	$self->{fs_dir_id} = 1;
-      }
+    if ($dir_id) {
+	    $self->{fs_dir_id} = $dir_id;
+    }
+    else {
+	    $self->{fs_dir_id} = 1;
+    }
 
     return $self;
   }
@@ -107,7 +104,8 @@ sub get {
     return unless $url;
 
     if($self->filter_by_content_type($url)) {
-            my $response = $self->{_ua}->get($url);
+            my $req = HTTP::Request->new('GET', $url);
+            my $response = $self->{_ua}->request($req);
             if ($response->is_success) {
                     my $content = $response->decoded_content;
                     return new Net::FTPServer::HTTP::FileHandle (
@@ -142,73 +140,12 @@ sub mkdir { }
 
 sub config {return $_[0]->{ftps}->config($_[1]) || q{}}
 
-sub status 
-  {
+sub status {
     my $self = shift;
     my $username = substr $self->{ftps}{user}, 0, 8;
 
     return ( 'd', 0755, 1, $username, "users", 1024, 0 );
-  }
-
-
-sub open
-  {
-    my $self = shift;
-    my $filename = shift;
-    my $mode = shift;
-
-    if ($mode eq "r")		# Open an existing file for reading.
-      {
-	foreach (keys %files)
-	  {
-	    if ($files{$_}{dir_id} == $self->{fs_dir_id} &&
-		$files{$_}{name} eq $filename)
-	      {
-		return new IO::Scalar ($files{$_}{content});
-	      }
-	  }
-
-	return undef;
-      }
-    elsif ($mode eq "w")	# Create/overwrite the file.
-      {
-	# If a file with the same name exists already, erase it.
-	foreach (keys %files)
-	  {
-	    if ($files{$_}{dir_id} == $self->{fs_dir_id} &&
-		$files{$_}{name} eq $filename)
-	      {
-		delete $files{$_};
-		last;
-	      }
-	  }
-
-	my $content = "";
-
-	$files{$next_file_id++} = { dir_id => $self->{fs_dir_id},
-				    name => $filename,
-				    content => \$content };
-
-	return new IO::Scalar (\$content);
-      }
-    elsif ($mode eq "a")	# Append to the file.
-      {
-	foreach (keys %files)
-	  {
-	    if ($files{$_}{dir_id} == $self->{fs_dir_id} &&
-		$files{$_}{name} eq $filename)
-	      {
-		return new IO::Scalar ($files{$_}{content});
-	      }
-	  }
-
-	return undef;
-      }
-    else
-      {
-	croak "unknown file mode: $mode; use 'r', 'w' or 'a' instead";
-      }
-  }
+}
 
 1;
 
